@@ -9,6 +9,8 @@ import {
   Users,
   FolderOpen,
   History,
+  Settings,
+  Crown,
   Menu,
   X,
 } from 'lucide-react'
@@ -29,14 +31,51 @@ const systemNavItems = [
   { label: 'Log de Auditoría', path: '/admin/log', icon: History },
 ]
 
+const masterNavItems = [
+  { label: 'Clientes', path: '/master/clients', icon: Crown },
+  { label: 'Licencias', path: '/master/licenses', icon: Settings },
+]
+
+function getAuthRole(): string | null {
+  try {
+    const auth = localStorage.getItem('hoteldocs_auth')
+    if (!auth) return null
+    const parsed = JSON.parse(auth)
+    return parsed.role ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const userRole = getAuthRole()
+  const isMaster = userRole === 'master'
 
   const isActive = (path: string) => {
     if (path === '/documents' && location.pathname.startsWith('/documents')) return true
     if (path === '/admin/documents' && location.pathname.startsWith('/admin/documents')) return true
+    if (path === '/master/clients' && location.pathname.startsWith('/master/clients')) return true
     return location.pathname === path
+  }
+
+  const pageTitle = () => {
+    const p = location.pathname
+    if (p === '/dashboard') return 'Dashboard'
+    if (p === '/documents') return 'Documentos'
+    if (p.startsWith('/documents/')) return 'Documento'
+    if (p === '/admin/centers') return 'Centros'
+    if (p === '/admin/users') return 'Usuarios'
+    if (p === '/admin/topics') return 'Temas'
+    if (p === '/admin/documents') return 'Documentos (Admin)'
+    if (p.startsWith('/admin/documents/')) return 'Editor de Documento'
+    if (p === '/admin/log') return 'Log de Auditoría'
+    if (p === '/admin/alarms') return 'Alarmas'
+    if (p === '/master/clients') return 'Clientes'
+    if (p.startsWith('/master/clients/')) return 'Detalle de Cliente'
+    if (p === '/master/licenses') return 'Licencias'
+    return ''
   }
 
   return (
@@ -68,7 +107,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <SidebarContent isActive={isActive} />
+        <SidebarContent isActive={isActive} isMaster={isMaster} />
       </aside>
 
       {/* Desktop sidebar */}
@@ -79,7 +118,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-base font-semibold">HotelDocs</span>
           </Link>
         </div>
-        <SidebarContent isActive={isActive} />
+        <SidebarContent isActive={isActive} isMaster={isMaster} />
       </aside>
 
       {/* Main area */}
@@ -93,18 +132,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-sm text-[#6B7280]">
-            {location.pathname === '/dashboard' && 'Dashboard'}
-            {location.pathname === '/documents' && 'Documentos'}
-            {location.pathname.startsWith('/documents/') && 'Documento'}
-            {location.pathname === '/admin/centers' && 'Centros'}
-            {location.pathname === '/admin/users' && 'Usuarios'}
-            {location.pathname === '/admin/topics' && 'Temas'}
-            {location.pathname === '/admin/documents' && 'Documentos (Admin)'}
-            {location.pathname.startsWith('/admin/documents/') && 'Editor de Documento'}
-            {location.pathname === '/admin/log' && 'Log de Auditoría'}
-            {location.pathname === '/admin/alarms' && 'Alarmas'}
-          </span>
+          <span className="text-sm text-[#6B7280]">{pageTitle()}</span>
         </header>
 
         {/* Page content */}
@@ -116,7 +144,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SidebarContent({ isActive }: { isActive: (path: string) => boolean }) {
+function SidebarContent({ isActive, isMaster }: { isActive: (path: string) => boolean; isMaster: boolean }) {
   return (
     <nav className="flex-1 overflow-y-auto py-4">
       <div className="px-3 space-y-1">
@@ -136,6 +164,22 @@ function SidebarContent({ isActive }: { isActive: (path: string) => boolean }) {
           <NavItem key={item.path} item={item} active={isActive(item.path)} />
         ))}
       </div>
+
+      {isMaster && (
+        <>
+          <div className="my-3 mx-4 border-t border-[#E5E7EB]" />
+          <div className="px-3 pb-1">
+            <span className="px-3 text-[11px] font-semibold uppercase text-[#9CA3AF] tracking-wide">
+              Master
+            </span>
+          </div>
+          <div className="px-3 space-y-1">
+            {masterNavItems.map((item) => (
+              <NavItem key={item.path} item={item} active={isActive(item.path)} />
+            ))}
+          </div>
+        </>
+      )}
 
       <div className="my-3 mx-4 border-t border-[#E5E7EB]" />
       <div className="px-3 pb-1">
@@ -159,18 +203,17 @@ function NavItem({
   item: { label: string; path: string; icon: React.ElementType }
   active: boolean
 }) {
-  const Icon = item.icon
   return (
     <Link
       to={item.path}
-      className={`flex items-center gap-3 px-3 py-2 rounded-md text-[13px] font-medium transition-all duration-150 ${
+      className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
         active
-          ? 'bg-[#EFF6FF] text-[#2563EB] border-l-[3px] border-l-[#2563EB]'
-          : 'text-[#6B7280] hover:bg-[#F3F4F6] border-l-[3px] border-l-transparent'
+          ? 'bg-[#EFF6FF] text-[#2563EB]'
+          : 'text-[#374151] hover:bg-[#F3F4F6]'
       }`}
     >
-      <Icon className="w-[18px] h-[18px] shrink-0" />
-      <span>{item.label}</span>
+      <item.icon className="w-[18px] h-[18px]" />
+      {item.label}
     </Link>
   )
 }

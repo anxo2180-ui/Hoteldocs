@@ -67,7 +67,7 @@ export default function AdminDocumentsPage() {
       if (search && !doc.title.toLowerCase().includes(search.toLowerCase())) return false
       if (statusFilter !== 'all' && doc.status !== statusFilter) return false
       if (topicFilter !== 'all' && doc.topicId !== topicFilter) return false
-      if (centerFilter !== 'all' && doc.centerId !== centerFilter) return false
+      if (centerFilter !== 'all' && !(doc.centerIds || []).includes(centerFilter)) return false
       return true
     })
   }, [documents, search, statusFilter, topicFilter, centerFilter])
@@ -221,7 +221,7 @@ export default function AdminDocumentsPage() {
                       <span className="font-medium text-[#111827]">{doc.title}</span>
                     </td>
                     <td className="py-3 px-4 text-[#6B7280]">{topicName(doc.topicId)}</td>
-                    <td className="py-3 px-4 text-[#6B7280]">{centerName(doc.centerId)}</td>
+                    <td className="py-3 px-4 text-[#6B7280]">{(doc.centerIds || []).map((cid: string) => centerName(cid)).join(', ')}</td>
                     <td className="py-3 px-4">
                       <StatusBadge status={doc.status} />
                     </td>

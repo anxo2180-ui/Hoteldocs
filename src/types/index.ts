@@ -1,9 +1,10 @@
-export type UserRole = 'admin' | 'user'
+export type UserRole = 'master' | 'clientAdmin' | 'hotelAdmin' | 'user'
 export type CenterStatus = 'active' | 'paused'
 export type DocumentStatus = 'draft' | 'pending' | 'approved' | 'discontinued'
 export type DocumentSourceType = 'manual' | 'pdf-import'
 export type DocumentVisibility = 'private' | 'all' | 'public'
 export type Department = 'cocina' | 'recepcion' | 'rrhh' | 'limpieza' | 'mantenimiento' | 'todos'
+export type LicenseType = 'basic' | 'professional' | 'enterprise'
 
 export const DEPARTMENTS: { value: Department; label: string }[] = [
   { value: 'cocina', label: 'Cocina' },
@@ -14,18 +15,31 @@ export const DEPARTMENTS: { value: Department; label: string }[] = [
   { value: 'todos', label: 'Todos' },
 ]
 
-export const VISIBILITY_OPTIONS: { value: DocumentVisibility; label: string; icon: string; description: string }[] = [
-  { value: 'private', label: 'Privado', icon: 'Lock', description: 'Solo el grupo asignado puede verlo' },
-  { value: 'all', label: 'Todos', icon: 'Building2', description: 'Visible a cualquier usuario logueado' },
-  { value: 'public', label: 'Público QR', icon: 'QrCode', description: 'Accesible sin login mediante QR' },
-]
+export interface Client {
+  id: string
+  name: string
+  email: string
+  contactName: string
+  contactPhone: string
+  licenseType: LicenseType
+  licenseExpiry: string
+  maxHotels: number
+  maxUsers: number
+  activeHotels: number
+  activeUsers: number
+  status: 'active' | 'suspended' | 'trial'
+  monthlyFee: number
+  notes: string
+  createdAt: string
+}
 
 export interface User {
   id: string
   email: string
   name: string
   role: UserRole
-  centerId: string
+  clientId: string | null
+  centerId: string | null
   department: Department | null
   isActive: boolean
   createdAt: string
@@ -35,6 +49,7 @@ export interface Center {
   id: string
   name: string
   code: string
+  clientId: string
   status: CenterStatus
   createdAt: string
 }
@@ -52,7 +67,8 @@ export interface Document {
   title: string
   content: string
   topicId: string
-  centerId: string
+  centerIds: string[]
+  clientId: string | null
   targetGroup: Department
   visibility: DocumentVisibility
   status: DocumentStatus

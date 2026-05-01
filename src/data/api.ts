@@ -1,5 +1,6 @@
-import type { User, Center, Topic, Document, DocumentAttachment, AuditLogEntry, Alarm, Department, DocumentVisibility } from '@/types'
+import type { User, Center, Topic, Document, DocumentAttachment, AuditLogEntry, Alarm, Client, Department, DocumentVisibility } from '@/types'
 import {
+  mockClients,
   mockCenters,
   mockUsers,
   mockTopics,
@@ -10,6 +11,7 @@ import {
 import { localPDFToWikiConverter } from '@/services/aiConverter'
 
 const KEYS = {
+  clients: 'hoteldocs_clients',
   centers: 'hoteldocs_centers',
   users: 'hoteldocs_users',
   topics: 'hoteldocs_topics',
@@ -39,6 +41,7 @@ function setItem<T>(key: string, data: T[]): void {
 }
 
 function seedAll(): void {
+  seedIfEmpty(KEYS.clients, mockClients)
   seedIfEmpty(KEYS.centers, mockCenters)
   seedIfEmpty(KEYS.users, mockUsers)
   seedIfEmpty(KEYS.topics, mockTopics)
@@ -60,6 +63,71 @@ function delay<T>(value: T, ms = 300): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms))
 }
 
+
+// Clients
+export async function getClients(): Promise<Client[]> {
+  ensureSeeded()
+  return delay(getItem<Client>(KEYS.clients))
+}
+
+export async function getClientById(id: string): Promise<Client | null> {
+  ensureSeeded()
+  const clients = getItem<Client>(KEYS.clients)
+  return delay(clients.find((c) => c.id === id) ?? null)
+}
+
+export async function createClient(client: Omit<Client, 'id' | 'createdAt'>): Promise<Client> {
+  ensureSeeded()
+  const newClient: Client = {
+    ...client,
+    id: `client-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+  }
+  const clients = getItem<Client>(KEYS.clients)
+  clients.push(newClient)
+  setItem(KEYS.clients, clients)
+  return delay(newClient)
+}
+
+export async function updateClient(id: string, updates: Partial<Client>): Promise<Client> {
+  ensureSeeded()
+  const clients = getItem<Client>(KEYS.clients)
+  const idx = clients.findIndex((c) => c.id === id)
+  if (idx === -1) throw new Error('Client not found')
+  const updated: Client = { ...clients[idx], ...updates }
+  clients[idx] = updated
+  setItem(KEYS.clients, clients)
+  return delay(updated)
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  ensureSeeded()
+  const clients = getItem<Client>(KEYS.clients).filter((c) => c.id !== id)
+  setItem(KEYS.clients, clients)
+  return delay(undefined)
+}
+
+// Helper: Get centers by client
+export async function getCentersByClient(clientId: string): Promise<Center[]> {
+  ensureSeeded()
+  const centers = getItem<Center>(KEYS.centers)
+  return delay(centers.filter((c) => c.clientId === clientId))
+}
+
+// Helper: Get center codes map
+export async function getCenterCodes(centerIds: string[]): Promise<{ id: string; name: string; code: string }[]> {
+  ensureSeeded()
+  const centers = getItem<Center>(KEYS.centers)
+  return delay(
+    centerIds
+      .map((id) => {
+        const c = centers.find((center) => center.id === id)
+        return c ? { id: c.id, name: c.name, code: c.code } : null
+      })
+      .filter(Boolean) as { id: string; name: string; code: string }[]
+  )
+}
+
 // Documents
 export async function getDocuments(): Promise<Document[]> {
   ensureSeeded()
@@ -71,12 +139,31 @@ export async function getDocumentsForUser(user: User | null): Promise<Document[]
   ensureSeeded()
   const docs = getItem<Document>(KEYS.documents)
 
-  // Admin sees everything
-  if (user?.role === 'admin') {
+  // Master sees everything
+  if (user?.role === 'master') {
     return delay(docs)
   }
 
+  // ClientAdmin sees all documents of their client (or global docs)
+  if (user?.role === 'clientAdmin') {
+    const clientDocs = docs.filter((doc) =>
+      doc.clientId === user.clientId || doc.clientId === null
+    )
+    return delay(clientDocs)
+  }
+
+  // HotelAdmin sees docs that include their center
+  if (user?.role === 'hotelAdmin') {
+    const centerDocs = docs.filter((doc) => {
+      const hasCenter = doc.centerIds.includes(user.centerId ?? '')
+      return hasCenter
+    })
+    return delay(centerDocs)
+  }
+
+  // Regular user: approved + visible + matching department + center
   const userDept = user?.department ?? null
+  const userCenter = user?.centerId ?? null
 
   const filtered = docs.filter((doc) => {
     // Public documents are always visible
@@ -85,13 +172,14 @@ export async function getDocumentsForUser(user: User | null): Promise<Document[]
     // Must be approved and visible
     if (doc.status !== 'approved' || !doc.isVisible) return false
 
-    // Must have a user logged in for non-public docs
-    if (!userDept) return false
+    // Must have user's center in centerIds
+    if (userCenter && !doc.centerIds.includes(userCenter)) return false
 
     // Document must match user's department or be for 'todos'
     const matchesDept = doc.targetGroup === userDept || doc.targetGroup === 'todos'
+    if (!matchesDept) return false
 
-    return matchesDept
+    return true
   })
 
   return delay(filtered)
@@ -349,7 +437,8 @@ export async function uploadPDFAndConvert(
   documentData: {
     title: string
     topicId: string
-    centerId: string
+    centerIds: string[]
+    clientId: string | null
     createdBy: string
     status?: 'draft' | 'pending' | 'approved' | 'discontinued'
     targetGroup?: Department
@@ -371,7 +460,8 @@ export async function uploadPDFAndConvert(
     title: documentData.title || file.name.replace(/\.pdf$/i, ''),
     content: html,
     topicId: documentData.topicId,
-    centerId: documentData.centerId,
+    centerIds: documentData.centerIds,
+    clientId: documentData.clientId ?? null,
     targetGroup: documentData.targetGroup ?? 'todos',
     visibility: documentData.visibility ?? 'private',
     status: documentData.status ?? 'draft',

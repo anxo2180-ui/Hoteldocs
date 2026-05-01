@@ -12,6 +12,9 @@ import AdminDocumentEditorPage from './pages/AdminDocumentEditorPage'
 import AdminLogPage from './pages/AdminLogPage'
 import AdminAlarmsPage from './pages/AdminAlarmsPage'
 import PublicDocumentPage from './pages/PublicDocumentPage'
+import MasterClientsPage from './pages/MasterClientsPage'
+import MasterClientDetailPage from './pages/MasterClientDetailPage'
+import MasterLicensesPage from './pages/MasterLicensesPage'
 import AppShell from './components/AppShell'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -95,7 +98,6 @@ export default function App() {
           </AppLayout>
         }
       />
-      <Route path="/public/:id" element={<PublicDocumentPage />} />
       <Route
         path="/admin/alarms"
         element={
@@ -104,6 +106,10 @@ export default function App() {
           </AppLayout>
         }
       />
+      <Route path="/public/:id" element={<PublicDocumentPage />} />
+      <Route path="/master/clients" element={<AppLayout><MasterClientsPage /></AppLayout>} />
+      <Route path="/master/clients/:id" element={<AppLayout><MasterClientDetailPage /></AppLayout>} />
+      <Route path="/master/licenses" element={<AppLayout><MasterLicensesPage /></AppLayout>} />
     </Routes>
   )
 }

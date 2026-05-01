@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/table'
 
 import type { User, Center, Department } from '@/types'
+import type { UserRole } from '@/types'
 import { DEPARTMENTS } from '@/types'
 import {
   getUsers,
@@ -92,14 +93,14 @@ export default function AdminUsersPage() {
 
   const [formName, setFormName] = useState('')
   const [formEmail, setFormEmail] = useState('')
-  const [formRole, setFormRole] = useState<'admin' | 'user'>('user')
+  const [formRole, setFormRole] = useState<UserRole>('user')
   const [formCenterId, setFormCenterId] = useState('')
   const [formDepartment, setFormDepartment] = useState<Department>('todos')
   const [formActive, setFormActive] = useState(true)
 
   useEffect(() => {
     const auth = getAuthUser()
-    if (!auth || auth.role !== 'admin') {
+    if (!auth || !['master', 'clientAdmin', 'hotelAdmin'].includes(auth.role)) {
       navigate('/dashboard')
       return
     }
@@ -141,7 +142,7 @@ export default function AdminUsersPage() {
     setFormName(user.name)
     setFormEmail(user.email)
     setFormRole(user.role)
-    setFormCenterId(user.centerId)
+    setFormCenterId(user.centerId ?? '')
     setFormDepartment((user.department ?? 'todos') as Department)
     setFormActive(user.isActive)
     setModalOpen(true)
@@ -156,7 +157,7 @@ export default function AdminUsersPage() {
         name: formName.trim(),
         email: formEmail.trim(),
         role: formRole,
-        centerId: formCenterId,
+        centerId: formRole === 'hotelAdmin' || formRole === 'user' ? formCenterId : null,
         department: formDepartment,
         isActive: formActive,
       })
@@ -173,7 +174,8 @@ export default function AdminUsersPage() {
         name: formName.trim(),
         email: formEmail.trim(),
         role: formRole,
-        centerId: formCenterId || centers[0]?.id || '',
+        clientId: (auth as any)?.clientId || null,
+        centerId: formRole === 'hotelAdmin' || formRole === 'user' ? (formCenterId || centers[0]?.id || '') : null,
         department: formDepartment,
         isActive: formActive,
       })
@@ -205,7 +207,7 @@ export default function AdminUsersPage() {
   }
 
   const activeCount = users.filter((u) => u.isActive).length
-  const adminCount = users.filter((u) => u.role === 'admin').length
+  const adminCount = users.filter((u) => ['master', 'clientAdmin', 'hotelAdmin'].includes(u.role)).length
 
   return (
     <AppShell>
@@ -334,7 +336,7 @@ export default function AdminUsersPage() {
                           {user.email}
                         </td>
                         <td className="py-3 px-4">
-                          {user.role === 'admin' ? (
+                          {['master', 'clientAdmin', 'hotelAdmin'].includes(user.role) ? (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide bg-[#EFF6FF] text-[#2563EB]">
                               Admin
                             </span>
@@ -345,7 +347,7 @@ export default function AdminUsersPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-[#6B7280]">
-                          {centerName(user.centerId)}
+                          {centerName(user.centerId ?? '')}
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
@@ -489,15 +491,15 @@ export default function AdminUsersPage() {
                     type="radio"
                     name="role"
                     value="admin"
-                    checked={formRole === 'admin'}
-                    onChange={() => setFormRole('admin')}
+                    checked={formRole === 'clientAdmin'}
+                    onChange={() => setFormRole('clientAdmin')}
                     className="accent-[#2563EB]"
                   />
                   <span className="text-sm text-[#111827]">Administrador</span>
                 </label>
               </div>
               <p className="text-xs text-[#6B7280]">
-                {formRole === 'admin'
+                {formRole === 'clientAdmin'
                   ? 'Puede crear, editar, aprobar documentos y gestionar usuarios'
                   : 'Puede ver y descargar documentos aprobados'}
               </p>

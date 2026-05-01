@@ -8,25 +8,61 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Info,
+  Crown,
+  Building2,
+  User,
 } from 'lucide-react'
 
 const DEMO_USERS = [
   {
-    email: 'admin@hoteldocs.com',
+    email: 'master@hoteldocs.com',
+    password: 'master123',
+    id: 'user-master',
+    name: 'System Master',
+    role: 'master',
+    clientId: null,
+    centerId: null,
+    department: null,
+  },
+  {
+    email: 'robinson-admin@hoteldocs.com',
     password: 'admin123',
-    id: 'user-1',
-    name: 'Carlos Administrador',
-    role: 'admin' as const,
-    centerId: 'center-1',
+    id: 'user-robinson-admin',
+    name: 'Robinson Admin',
+    role: 'clientAdmin',
+    clientId: 'client-1',
+    centerId: null,
+    department: 'todos',
+  },
+  {
+    email: 'tui-admin@hoteldocs.com',
+    password: 'admin123',
+    id: 'user-tui-admin',
+    name: 'TUI Admin',
+    role: 'clientAdmin',
+    clientId: 'client-2',
+    centerId: null,
+    department: 'todos',
+  },
+  {
+    email: 'rcjd-admin@hoteldocs.com',
+    password: 'admin123',
+    id: 'user-rcjd-admin',
+    name: 'Ana Garcia (RCJD)',
+    role: 'hotelAdmin',
+    clientId: 'client-1',
+    centerId: 'center-rcjd',
+    department: 'todos',
   },
   {
     email: 'user@hoteldocs.com',
     password: 'user123',
-    id: 'user-demo',
-    name: 'Usuario Demo',
-    role: 'user' as const,
-    centerId: 'center-1',
+    id: 'user-old',
+    name: 'Maria Recepcionista',
+    role: 'user',
+    clientId: 'client-1',
+    centerId: 'center-rcjd',
+    department: 'recepcion',
   },
 ]
 
@@ -60,12 +96,19 @@ export default function LoginPage() {
       email: user.email,
       name: user.name,
       role: user.role,
+      clientId: user.clientId,
       centerId: user.centerId,
+      department: user.department,
     }
 
     localStorage.setItem('hoteldocs_auth', JSON.stringify(authData))
     setLoading(false)
     navigate('/dashboard', { replace: true })
+  }
+
+  const setDemoCredentials = (user: (typeof DEMO_USERS)[0]) => {
+    setEmail(user.email)
+    setPassword(user.password)
   }
 
   return (
@@ -124,85 +167,84 @@ export default function LoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Tu contraseña"
                 required
                 className="w-full pl-10 pr-10 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
-                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF]"
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </motion.div>
 
-          {/* Error */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: [0, -4, 4, -4, 4, 0] }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="text-[13px] text-[#EF4444] bg-[#FEF2F2] rounded px-3 py-2"
-              >
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2"
+            >
+              {error}
+            </motion.p>
+          )}
 
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 0.25 }}
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full h-10 flex items-center justify-center gap-2 bg-[#2563EB] text-white text-sm font-medium rounded-md hover:bg-[#1D4ED8] active:scale-[0.98] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Iniciando...
-                </>
-              ) : (
-                'Iniciar sesión'
-              )}
-            </button>
-          </motion.div>
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              'Iniciar Sesion'
+            )}
+          </motion.button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 border-t border-[#E5E7EB]" />
-          <span className="text-xs text-[#9CA3AF]">o</span>
-          <div className="flex-1 border-t border-[#E5E7EB]" />
-        </div>
-
-        {/* Demo hint */}
-        <div className="flex items-start gap-2 bg-[#EFF6FF] border border-[#BFDBFE] rounded-md p-3">
-          <Info className="w-4 h-4 text-[#2563EB] shrink-0 mt-0.5" />
-          <p className="text-[13px] text-[#1E40AF]">
-            ¿Primera vez? Contacta a tu administrador para obtener acceso.
+        {/* Demo users */}
+        <div className="mt-6 pt-5 border-t border-[#E5E7EB]">
+          <p className="text-[11px] font-medium uppercase text-[#9CA3AF] tracking-wide mb-3">
+            Credenciales de demo
           </p>
+          <div className="grid grid-cols-1 gap-2">
+            {DEMO_USERS.map((user) => (
+              <button
+                key={user.email}
+                onClick={() => setDemoCredentials(user)}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-[#E5E7EB] hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-all text-left"
+              >
+                {user.role === 'master' ? (
+                  <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                ) : user.role === 'clientAdmin' ? (
+                  <Building2 className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
+                ) : user.role === 'hotelAdmin' ? (
+                  <Building2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                ) : (
+                  <User className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium text-[#111827] truncate">{user.name}</p>
+                  <p className="text-[11px] text-[#6B7280] truncate">
+                    {user.role === 'master'
+                      ? 'Master Admin'
+                      : user.role === 'clientAdmin'
+                        ? 'Admin de Grupo'
+                        : user.role === 'hotelAdmin'
+                          ? 'Admin de Hotel'
+                          : 'Usuario'}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
-
-        {/* Demo credentials hint */}
-        <p className="mt-3 text-[11px] text-center text-[#9CA3AF]">
-          Demo: admin@hoteldocs.com / admin123 · user@hoteldocs.com / user123
-        </p>
       </motion.div>
     </div>
   )
 }
-
-// Inline AnimatePresence to avoid extra import
-import { AnimatePresence } from 'framer-motion'

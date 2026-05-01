@@ -153,6 +153,7 @@ export default function AdminCentersPage() {
       const created = await createCenter({
         name: formName.trim(),
         code: formCode.trim(),
+        clientId: 'client-1',
         status: formActive ? 'active' : 'paused',
       })
       await addAuditLogEntry({
