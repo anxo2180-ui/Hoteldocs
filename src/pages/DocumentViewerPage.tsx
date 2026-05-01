@@ -9,29 +9,49 @@ import {
   Eye,
   FileCheck,
   Paperclip,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Document, DocumentAttachment } from '@/types'
-import { getDocumentById, getAttachmentsByDocumentId } from '@/data/api'
+import type { Document, DocumentAttachment, Center } from '@/types'
+import { getDocumentById, getAttachmentsByDocumentId, getCenters } from '@/data/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Extract centerIds from a document, supporting both old (centerId)
+ *  and new (centerIds) shapes.                                         */
+function getDocCenterIds(doc: any): string[] {
+  if (doc.centerIds && Array.isArray(doc.centerIds)) return doc.centerIds
+  if (doc.centerId) return [doc.centerId]
+  return []
+}
+
+/* ------------------------------------------------------------------ */
 
 export default function DocumentViewerPage() {
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null)
   const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
+  const [centers, setCenters] = useState<Center[]>([])
   const [activeTab, setActiveTab] = useState('wiki')
 
   useEffect(() => {
     async function load() {
       if (!id) return
-      const doc = await getDocumentById(id)
+      const [doc, atts, allCenters] = await Promise.all([
+        getDocumentById(id),
+        getAttachmentsByDocumentId(id),
+        getCenters(),
+      ])
       if (doc) {
         setCurrentDoc(doc)
-        const atts = await getAttachmentsByDocumentId(id)
         setAttachments(atts)
+        setCenters(allCenters)
       } else {
         toast.error('Documento no encontrado')
       }
@@ -42,6 +62,10 @@ export default function DocumentViewerPage() {
 
   const signedAttachments = attachments.filter((a) => a.isSignedOriginal)
   const otherAttachments = attachments.filter((a) => !a.isSignedOriginal)
+
+  const docCenterIds = getDocCenterIds(currentDoc)
+  const docCenters = centers.filter((c) => docCenterIds.includes(c.id))
+  const allCentersSelected = docCenterIds.length > 0 && docCenterIds.length === centers.length
 
   const handleDownloadWiki = () => {
     toast.info('Descarga como PDF disponible próximamente')
@@ -94,7 +118,9 @@ export default function DocumentViewerPage() {
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-2 text-sm text-[#6B7280]">
+
+          {/* Metadata row */}
+          <div className="flex items-center gap-3 mt-2 text-sm text-[#6B7280] flex-wrap">
             <Badge
               variant="outline"
               className={
@@ -118,6 +144,30 @@ export default function DocumentViewerPage() {
                 Aprobado el{' '}
                 {new Date(currentDoc.approvalDate).toLocaleDateString('es-ES')}
               </span>
+            )}
+          </div>
+
+          {/* Hotels / Centers */}
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <Building2 className="w-4 h-4 text-[#6B7280]" />
+            {allCentersSelected ? (
+              <span className="text-sm text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                Aplica a todos los hoteles del cliente
+              </span>
+            ) : docCenters.length > 0 ? (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-[#6B7280] mr-1">Hoteles:</span>
+                {docCenters.map((c) => (
+                  <span
+                    key={c.id}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]"
+                  >
+                    {c.code}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-[#9CA3AF]">Sin hoteles asignados</span>
             )}
           </div>
         </div>

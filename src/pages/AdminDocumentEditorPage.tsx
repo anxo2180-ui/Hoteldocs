@@ -11,6 +11,8 @@ import {
   ArrowLeft,
   ShieldCheck,
   Paperclip,
+  ChevronDown,
+  Building2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Document, DocumentAttachment, Topic, Center, Department, DocumentVisibility } from '@/types'
@@ -40,6 +42,22 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Checkbox } from '@/components/ui/checkbox'
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Read centerIds from a document object, supporting both old (centerId)  
+ *  and new (centerIds) shapes.                                         */
+function getDocCenterIds(doc: any): string[] {
+  if (doc.centerIds && Array.isArray(doc.centerIds)) return doc.centerIds
+  if (doc.centerId) return [doc.centerId]
+  return []
+}
+
+/* ------------------------------------------------------------------ */
 
 export default function AdminDocumentEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -52,11 +70,12 @@ export default function AdminDocumentEditorPage() {
   const [topics, setTopics] = useState<Topic[]>([])
   const [centers, setCenters] = useState<Center[]>([])
   const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
+  const [centerPopoverOpen, setCenterPopoverOpen] = useState(false)
 
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [topicId, setTopicId] = useState('')
-  const [centerId, setCenterId] = useState('')
+  const [centerIds, setCenterIds] = useState<string[]>([])
   const [status, setStatus] = useState<Document['status']>('draft')
   const [isVisible, setIsVisible] = useState(false)
   const [targetGroup, setTargetGroup] = useState<Department>('todos')
@@ -83,7 +102,7 @@ export default function AdminDocumentEditorPage() {
           setTitle(doc.title)
           setContent(doc.content)
           setTopicId(doc.topicId)
-          setCenterId(doc.centerId)
+          setCenterIds(getDocCenterIds(doc))
           setStatus(doc.status)
           setIsVisible(doc.isVisible)
           setTargetGroup(doc.targetGroup)
@@ -101,13 +120,29 @@ export default function AdminDocumentEditorPage() {
     load()
   }, [id, isEdit, navigate])
 
+  const toggleCenter = (centerId: string) => {
+    setCenterIds((prev) =>
+      prev.includes(centerId) ? prev.filter((c) => c !== centerId) : [...prev, centerId]
+    )
+  }
+
+  const removeCenter = (centerId: string) => {
+    setCenterIds((prev) => prev.filter((c) => c !== centerId))
+  }
+
+  const selectedCenters = centers.filter((c) => centerIds.includes(c.id))
+
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error('El título es obligatorio')
       return
     }
-    if (!topicId || !centerId) {
-      toast.error('Selecciona un tema y un centro')
+    if (!topicId) {
+      toast.error('Selecciona un tema')
+      return
+    }
+    if (centerIds.length === 0) {
+      toast.error('Selecciona al menos un centro')
       return
     }
     setSaving(true)
@@ -117,7 +152,7 @@ export default function AdminDocumentEditorPage() {
           title,
           content,
           topicId,
-          centerId,
+          centerId: centerIds[0], // legacy single-center field
           targetGroup,
           visibility,
           status,
@@ -126,7 +161,16 @@ export default function AdminDocumentEditorPage() {
           isVisible,
           createdBy: 'user-1',
           sourceType,
-        })
+        } as any)
+        // Update with multi-center support
+        if (centerIds.length > 1) {
+          await updateDocument(newDoc.id, { centerIds } as any)
+        }
+        // Re-fetch to get updated document
+        const updatedDoc = await getDocumentById(newDoc.id)
+        if (updatedDoc) {
+          ;(updatedDoc as any).centerIds = centerIds
+        }
         // Save any pending PDF as attachment
         if (pdfFile) {
           const fileUrl = URL.createObjectURL(pdfFile)
@@ -153,13 +197,13 @@ export default function AdminDocumentEditorPage() {
           title,
           content,
           topicId,
-          centerId,
+          centerIds,
           targetGroup,
           visibility,
           status,
           isVisible,
           sourceType,
-        })
+        } as any)
         toast.success('Documento actualizado')
       }
     } catch (e) {
@@ -245,19 +289,24 @@ export default function AdminDocumentEditorPage() {
 
   const runFullPDFImport = async () => {
     if (!pdfFile) return
-    if (!topicId || !centerId) {
-      toast.error('Selecciona tema y centro antes de importar')
+    if (!topicId || centerIds.length === 0) {
+      toast.error('Selecciona tema y al menos un centro antes de importar')
       return
     }
     setSaving(true)
     try {
+      // Use first selected center for the legacy API call, then update with full list
       const result = await uploadPDFAndConvert(pdfFile, {
         title: title || pdfFile.name.replace(/\.pdf$/i, ''),
         topicId,
-        centerId,
+        centerId: centerIds[0],
         createdBy: 'user-1',
         status,
       })
+      // Update with multi-center support if multiple selected
+      if (centerIds.length > 1) {
+        await updateDocument(result.document.id, { centerIds } as any)
+      }
       toast.success('PDF importado y documento creado con éxito')
       navigate(`/admin/documents/${result.document.id}/edit`)
     } catch (e) {
@@ -330,20 +379,71 @@ export default function AdminDocumentEditorPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Multi-select centers */}
             <div>
-              <label className="block text-sm font-medium text-[#374151] mb-1">Centro</label>
-              <Select value={centerId} onValueChange={setCenterId}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Seleccionar centro" />
-                </SelectTrigger>
-                <SelectContent>
-                  {centers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
+              <label className="block text-sm font-medium text-[#374151] mb-1">
+                Hoteles ({centerIds.length} seleccionados)
+              </label>
+              <Popover open={centerPopoverOpen} onOpenChange={setCenterPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full px-3 py-2 text-sm border border-[#E5E7EB] rounded-md bg-white hover:border-[#9CA3AF] focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
+                  >
+                    <span className="text-[#6B7280]">
+                      {centerIds.length === 0
+                        ? 'Seleccionar hoteles...'
+                        : `${centerIds.length} hotel${centerIds.length > 1 ? 'es' : ''} seleccionado${centerIds.length > 1 ? 's' : ''}`}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-[#9CA3AF]" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2" align="start">
+                  <div className="space-y-1 max-h-56 overflow-auto">
+                    {centers.length === 0 && (
+                      <p className="text-xs text-[#9CA3AF] px-2 py-1">No hay hoteles disponibles</p>
+                    )}
+                    {centers.map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#F3F4F6] cursor-pointer transition-colors"
+                      >
+                        <Checkbox
+                          checked={centerIds.includes(c.id)}
+                          onCheckedChange={() => toggleCenter(c.id)}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm text-[#374151]">{c.name}</span>
+                          <span className="text-[10px] text-[#9CA3AF]">{c.code}</span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {/* Selected center chips */}
+              {selectedCenters.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {selectedCenters.map((c) => (
+                    <span
+                      key={c.id}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]"
+                    >
+                      <Building2 className="w-3 h-3" />
+                      {c.code}
+                      <button
+                        onClick={() => removeCenter(c.id)}
+                        className="ml-0.5 rounded-full hover:bg-[#2563EB] hover:text-white p-0.5 transition-colors"
+                        title="Quitar"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
           </div>
 

@@ -13,13 +13,28 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import type { Document, DocumentAttachment } from '@/types'
-import { getPublicDocumentById, getAttachmentsByDocumentId } from '@/data/api'
+import type { Document, DocumentAttachment, Center } from '@/types'
+import { getPublicDocumentById, getAttachmentsByDocumentId, getCenters } from '@/data/api'
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Extract centerIds from a document, supporting both old (centerId)
+ *  and new (centerIds) shapes.                                         */
+function getDocCenterIds(doc: any): string[] {
+  if (doc.centerIds && Array.isArray(doc.centerIds)) return doc.centerIds
+  if (doc.centerId) return [doc.centerId]
+  return []
+}
+
+/* ------------------------------------------------------------------ */
 
 export default function PublicDocumentPage() {
   const { id } = useParams<{ id: string }>()
   const [document, setDocument] = useState<Document | null>(null)
   const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
+  const [centers, setCenters] = useState<Center[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -28,11 +43,15 @@ export default function PublicDocumentPage() {
         setLoading(false)
         return
       }
-      const doc = await getPublicDocumentById(id)
+      const [doc, atts, allCenters] = await Promise.all([
+        getPublicDocumentById(id),
+        getAttachmentsByDocumentId(id),
+        getCenters(),
+      ])
       if (doc) {
         setDocument(doc)
-        const atts = await getAttachmentsByDocumentId(id)
         setAttachments(atts.filter((a) => a.isSignedOriginal))
+        setCenters(allCenters)
       }
       setLoading(false)
     }
@@ -75,6 +94,9 @@ export default function PublicDocumentPage() {
   }
 
   const signedAttachments = attachments.filter((a) => a.isSignedOriginal)
+  const docCenterIds = getDocCenterIds(document)
+  const docCenters = centers.filter((c) => docCenterIds.includes(c.id))
+  const allCentersSelected = docCenterIds.length > 0 && docCenterIds.length === centers.length
 
   return (
     <motion.div
@@ -142,6 +164,30 @@ export default function PublicDocumentPage() {
                 ? 'Todos los departamentos'
                 : `Dirigido a: ${document.targetGroup}`}
             </span>
+          </div>
+
+          {/* Hotels / Centers badges */}
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <Building2 className="w-4 h-4 text-[#6B7280]" />
+            {allCentersSelected ? (
+              <span className="text-sm text-emerald-700 font-medium bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                Aplica a todos los hoteles del cliente
+              </span>
+            ) : docCenters.length > 0 ? (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-[#6B7280] mr-1">Hoteles:</span>
+                {docCenters.map((c) => (
+                  <span
+                    key={c.id}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]"
+                  >
+                    {c.code}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-[#9CA3AF]">Sin hoteles asignados</span>
+            )}
           </div>
         </div>
 

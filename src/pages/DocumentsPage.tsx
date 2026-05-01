@@ -11,6 +11,7 @@ import {
   Loader2,
   X,
   ChevronDown,
+  Building2,
 } from 'lucide-react'
 import { getDocuments, getDocumentsForUser, getTopics, getCenters, updateDocument } from '@/data/api'
 import type { Document, Topic, Center, User } from '@/types'
@@ -63,6 +64,29 @@ const rowVariants = {
   }),
 } as const
 
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Extract centerIds from a document, supporting both old (centerId)
+ *  and new (centerIds) shapes. */
+function getDocCenterIds(doc: any): string[] {
+  if (doc.centerIds && Array.isArray(doc.centerIds)) return doc.centerIds
+  if (doc.centerId) return [doc.centerId]
+  return []
+}
+
+/** Build a map of center id -> code from the loaded centers list. */
+function buildCenterCodeMap(centers: Center[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  centers.forEach((c) => {
+    map[c.id] = c.code
+  })
+  return map
+}
+
+/* ------------------------------------------------------------------ */
+
 export default function DocumentsPage() {
   const navigate = useNavigate()
   const auth = getAuth()
@@ -113,6 +137,8 @@ export default function DocumentsPage() {
     }
   }, [toast])
 
+  const centerCodeMap = useMemo(() => buildCenterCodeMap(centers), [centers])
+
   const filteredDocs = useMemo(() => {
     let list = [...docs]
 
@@ -129,7 +155,11 @@ export default function DocumentsPage() {
     }
 
     if (centerFilter) {
-      list = list.filter((d) => d.centerId === centerFilter)
+      // Multi-center: check if any of the document's centerIds matches
+      list = list.filter((d) => {
+        const docCenterIds = getDocCenterIds(d)
+        return docCenterIds.includes(centerFilter)
+      })
     }
 
     if (groupFilter) {
@@ -187,6 +217,39 @@ export default function DocumentsPage() {
     setGroupFilter('')
     setVisibilityFilter('')
     setOnlyApprovedVisible(false)
+  }
+
+  /** Render center badges for a document. Show max 3 + overflow badge. */
+  function renderCenterBadges(doc: Document) {
+    const docCenterIds = getDocCenterIds(doc)
+    if (docCenterIds.length === 0) {
+      return <span className="text-[#9CA3AF] text-[11px]">-</span>
+    }
+
+    const codes = docCenterIds
+      .map((id: string) => centerCodeMap[id] || id)
+      .filter(Boolean)
+
+    const visible = codes.slice(0, 3)
+    const overflow = codes.length - 3
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map((code) => (
+          <span
+            key={code}
+            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB]"
+          >
+            {code}
+          </span>
+        ))}
+        {overflow > 0 && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
+            +{overflow}
+          </span>
+        )}
+      </div>
+    )
   }
 
   if (loading) {
@@ -424,7 +487,7 @@ export default function DocumentsPage() {
                     Tema
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
-                    Centro
+                    Hoteles
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
                     Fecha apr.
@@ -469,8 +532,8 @@ export default function DocumentsPage() {
                         {topicMap[doc.topicId] || doc.topicId}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-[13px] text-[#6B7280]">
-                      {centerMap[doc.centerId] || doc.centerId}
+                    <td className="px-4 py-3">
+                      {renderCenterBadges(doc)}
                     </td>
                     <td className="px-4 py-3 text-[13px] text-[#6B7280]">
                       {formatDate(doc.approvalDate)}
