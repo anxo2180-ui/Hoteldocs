@@ -181,6 +181,17 @@ export async function deleteUser(id: string): Promise<void> {
   return delay(undefined)
 }
 
+export async function toggleUserActive(id: string): Promise<User> {
+  ensureSeeded()
+  const users = getItem<User>(KEYS.users)
+  const idx = users.findIndex((u) => u.id === id)
+  if (idx === -1) throw new Error('User not found')
+  const updated: User = { ...users[idx], isActive: !users[idx].isActive }
+  users[idx] = updated
+  setItem(KEYS.users, users)
+  return delay(updated)
+}
+
 // Topics
 export async function getTopics(): Promise<Topic[]> {
   ensureSeeded()
