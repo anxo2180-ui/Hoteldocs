@@ -262,3 +262,18 @@ export async function deleteAlarm(id: string): Promise<void> {
   setItem(KEYS.alarms, alarms)
   return delay(undefined)
 }
+
+export async function updateAlarm(id: string, updates: Partial<Alarm>): Promise<Alarm> {
+  ensureSeeded()
+  const alarms = getItem<Alarm>(KEYS.alarms)
+  const idx = alarms.findIndex((a) => a.id === id)
+  if (idx === -1) throw new Error('Alarm not found')
+  const updated: Alarm = { ...alarms[idx], ...updates }
+  alarms[idx] = updated
+  setItem(KEYS.alarms, alarms)
+  return delay(updated)
+}
+
+export async function toggleDocumentVisibility(id: string, isVisible: boolean): Promise<Document> {
+  return updateDocument(id, { isVisible })
+}
