@@ -138,9 +138,9 @@ export default function PublicDocumentPage() {
 
             <span className="flex items-center gap-1">
               <Building2 className="w-3.5 h-3.5" />
-              {document.targetGroup === 'todos'
+              {document.departmentId === 'todos'
                 ? 'Todos los departamentos'
-                : `Dirigido a: ${document.targetGroup}`}
+                : `Dirigido a: ${document.departmentId}`}
             </span>
           </div>
         </div>

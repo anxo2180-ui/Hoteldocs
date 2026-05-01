@@ -3,17 +3,7 @@ export type CenterStatus = 'active' | 'paused'
 export type DocumentStatus = 'draft' | 'pending' | 'approved' | 'discontinued'
 export type DocumentSourceType = 'manual' | 'pdf-import'
 export type DocumentVisibility = 'private' | 'all' | 'public'
-export type Department = 'cocina' | 'recepcion' | 'rrhh' | 'limpieza' | 'mantenimiento' | 'todos'
 export type LicenseType = 'basic' | 'professional' | 'enterprise'
-
-export const DEPARTMENTS: { value: Department; label: string }[] = [
-  { value: 'cocina', label: 'Cocina' },
-  { value: 'recepcion', label: 'Recepción' },
-  { value: 'rrhh', label: 'RRHH' },
-  { value: 'limpieza', label: 'Limpieza' },
-  { value: 'mantenimiento', label: 'Mantenimiento' },
-  { value: 'todos', label: 'Todos' },
-]
 
 export interface Client {
   id: string
@@ -33,14 +23,22 @@ export interface Client {
   createdAt: string
 }
 
+export interface Department {
+  id: string
+  clientId: string
+  name: string
+  code: string
+  createdAt: string
+}
+
 export interface User {
   id: string
   email: string
   name: string
   role: UserRole
   clientId: string | null
-  centerId: string | null
-  department: Department | null
+  centerIds: string[]
+  departmentId: string | null
   isActive: boolean
   createdAt: string
 }
@@ -69,7 +67,7 @@ export interface Document {
   topicId: string
   centerIds: string[]
   clientId: string | null
-  targetGroup: Department
+  departmentId: string | null
   visibility: DocumentVisibility
   status: DocumentStatus
   version: number

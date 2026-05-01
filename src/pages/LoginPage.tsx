@@ -21,8 +21,8 @@ const DEMO_USERS = [
     name: 'System Master',
     role: 'master',
     clientId: null,
-    centerId: null,
-    department: null,
+    centerIds: [],
+    departmentId: null,
   },
   {
     email: 'robinson-admin@hoteldocs.com',
@@ -31,8 +31,8 @@ const DEMO_USERS = [
     name: 'Robinson Admin',
     role: 'clientAdmin',
     clientId: 'client-1',
-    centerId: null,
-    department: 'todos',
+    centerIds: ['center-rcjd', 'center-rcez', 'center-rcsn', 'center-rcvd', 'center-rcqr', 'center-rcbt'],
+    departmentId: 'dept-todos',
   },
   {
     email: 'tui-admin@hoteldocs.com',
@@ -41,8 +41,8 @@ const DEMO_USERS = [
     name: 'TUI Admin',
     role: 'clientAdmin',
     clientId: 'client-2',
-    centerId: null,
-    department: 'todos',
+    centerIds: ['center-tmlf', 'center-tmlcal'],
+    departmentId: 'dept-tui-todos',
   },
   {
     email: 'rcjd-admin@hoteldocs.com',
@@ -51,8 +51,8 @@ const DEMO_USERS = [
     name: 'Ana Garcia (RCJD)',
     role: 'hotelAdmin',
     clientId: 'client-1',
-    centerId: 'center-rcjd',
-    department: 'todos',
+    centerIds: ['center-rcjd'],
+    departmentId: 'dept-todos',
   },
   {
     email: 'user@hoteldocs.com',
@@ -61,8 +61,8 @@ const DEMO_USERS = [
     name: 'Maria Recepcionista',
     role: 'user',
     clientId: 'client-1',
-    centerId: 'center-rcjd',
-    department: 'recepcion',
+    centerIds: ['center-rcjd'],
+    departmentId: 'dept-recepcion',
   },
 ]
 
@@ -97,8 +97,8 @@ export default function LoginPage() {
       name: user.name,
       role: user.role,
       clientId: user.clientId,
-      centerId: user.centerId,
-      department: user.department,
+      centerIds: user.centerIds,
+      departmentId: user.departmentId,
     }
 
     localStorage.setItem('hoteldocs_auth', JSON.stringify(authData))

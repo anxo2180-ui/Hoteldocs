@@ -13,8 +13,7 @@ import {
   Paperclip,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Document, DocumentAttachment, Topic, Center, Department, DocumentVisibility } from '@/types'
-import { DEPARTMENTS } from '@/types'
+import type { Document, DocumentAttachment, Topic, Center, DocumentVisibility } from '@/types'
 import {
   getDocumentById,
   createDocument,
@@ -52,6 +51,7 @@ export default function AdminDocumentEditorPage() {
   const auth = JSON.parse(localStorage.getItem('hoteldocs_auth') || '{}')
   const [topics, setTopics] = useState<Topic[]>([])
   const [centers, setCenters] = useState<Center[]>([])
+  const [departments] = useState<{id: string; name: string; code: string; clientId: string}[]>([])
   const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
 
   const [title, setTitle] = useState('')
@@ -60,7 +60,7 @@ export default function AdminDocumentEditorPage() {
   const [centerIds, setCenterIds] = useState<string[]>([])
   const [status, setStatus] = useState<Document['status']>('draft')
   const [isVisible, setIsVisible] = useState(false)
-  const [targetGroup, setTargetGroup] = useState<Department>('todos')
+  const [departmentId, setDepartmentId] = useState<string>('')
   const [visibility, setVisibility] = useState<DocumentVisibility>('private')
   const [sourceType, setSourceType] = useState<Document['sourceType']>('manual')
 
@@ -87,7 +87,7 @@ export default function AdminDocumentEditorPage() {
           setCenterIds(doc.centerIds)
           setStatus(doc.status)
           setIsVisible(doc.isVisible)
-          setTargetGroup(doc.targetGroup)
+          setDepartmentId(doc.departmentId ?? '')
           setVisibility(doc.visibility)
           setSourceType(doc.sourceType)
           const atts = await getAttachmentsByDocumentId(id)
@@ -120,7 +120,7 @@ export default function AdminDocumentEditorPage() {
           topicId,
           centerIds,
           clientId: auth?.clientId ?? null,
-          targetGroup,
+          departmentId,
           visibility,
           status,
           version: 1,
@@ -156,7 +156,7 @@ export default function AdminDocumentEditorPage() {
           content,
           topicId,
           centerIds,
-          targetGroup,
+          departmentId,
           visibility,
           status,
           isVisible,
@@ -262,7 +262,7 @@ export default function AdminDocumentEditorPage() {
         status,
       })
       toast.success('PDF importado y documento creado con éxito')
-      navigate(`/admin/documents/${result.document.id}/edit`)
+      navigate(`/admin/documents/${result.id}/edit`)
     } catch (e) {
       toast.error('Error al importar PDF')
     } finally {
@@ -392,15 +392,15 @@ export default function AdminDocumentEditorPage() {
           {/* Target Group & Visibility */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#374151] mb-1">Grupo destinatario</label>
-              <Select value={targetGroup} onValueChange={(v) => setTargetGroup(v as Department)}>
+              <label className="block text-sm font-medium text-[#374151] mb-1">Departamento</label>
+              <Select value={departmentId} onValueChange={setDepartmentId}>
                 <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="Seleccionar grupo" />
+                  <SelectValue placeholder="Seleccionar departamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

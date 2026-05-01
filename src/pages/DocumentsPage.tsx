@@ -12,9 +12,8 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react'
-import { getDocuments, getDocumentsForUser, getTopics, getCenters, updateDocument } from '@/data/api'
-import type { Document, Topic, Center, User } from '@/types'
-import { DEPARTMENTS } from '@/types'
+import { getDocuments, getDocumentsForUser, getTopics, getCenters, getDepartmentsByClient, updateDocument } from '@/data/api'
+import type { Document, Topic, Center, User, Department } from '@/types'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 
@@ -22,9 +21,10 @@ interface AuthData {
   id: string
   email: string
   name: string
-  role: 'admin' | 'user'
-  centerId: string
-  department: string | null
+  role: 'master' | 'clientAdmin' | 'hotelAdmin' | 'user'
+  clientId: string
+  centerIds: string[]
+  departmentId: string | null
 }
 
 function getAuth(): AuthData | null {
@@ -71,13 +71,14 @@ export default function DocumentsPage() {
   const [docs, setDocs] = useState<Document[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [centers, setCenters] = useState<Center[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
   const [topicFilter, setTopicFilter] = useState('')
   const [centerFilter, setCenterFilter] = useState('')
   const [onlyApprovedVisible, setOnlyApprovedVisible] = useState(false)
-  const [groupFilter, setGroupFilter] = useState('')
+  const [deptFilter, setDeptFilter] = useState('')
   const [visibilityFilter, setVisibilityFilter] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
@@ -91,14 +92,17 @@ export default function DocumentsPage() {
         // Get current user for permission filtering
         const authData = getAuth()
         const docsPromise = isAdmin ? getDocuments() : getDocumentsForUser(authData as unknown as User)
-        const [d, t, c] = await Promise.all([
+        const clientId = auth?.clientId
+        const [d, t, c, depts] = await Promise.all([
           docsPromise,
           getTopics(),
           getCenters(),
+          clientId ? getDepartmentsByClient(clientId) : Promise.resolve([]),
         ])
         setDocs(d)
         setTopics(t)
         setCenters(c)
+        setDepartments(depts)
       } finally {
         setLoading(false)
       }
@@ -132,8 +136,8 @@ export default function DocumentsPage() {
       list = list.filter((d) => (d.centerIds || []).includes(centerFilter))
     }
 
-    if (groupFilter) {
-      list = list.filter((d) => d.targetGroup === groupFilter)
+    if (deptFilter) {
+      list = list.filter((d) => d.departmentId === deptFilter)
     }
 
     if (visibilityFilter) {
@@ -153,7 +157,7 @@ export default function DocumentsPage() {
     })
 
     return list
-  }, [docs, search, topicFilter, centerFilter, groupFilter, visibilityFilter, onlyApprovedVisible, isAdmin, auth])
+  }, [docs, search, topicFilter, centerFilter, deptFilter, visibilityFilter, onlyApprovedVisible, isAdmin, auth, departments])
 
   const handleToggleVisible = async (doc: Document) => {
     try {
@@ -166,7 +170,7 @@ export default function DocumentsPage() {
   }
 
   const hasActiveFilters =
-    search.trim() || topicFilter || centerFilter || groupFilter || visibilityFilter || onlyApprovedVisible
+    search.trim() || topicFilter || centerFilter || deptFilter || visibilityFilter || onlyApprovedVisible
 
   const topicMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -184,7 +188,7 @@ export default function DocumentsPage() {
     setSearch('')
     setTopicFilter('')
     setCenterFilter('')
-    setGroupFilter('')
+    setDeptFilter('')
     setVisibilityFilter('')
     setOnlyApprovedVisible(false)
   }
@@ -285,17 +289,17 @@ export default function DocumentsPage() {
           </div>
         )}
 
-        {/* Group filter */}
+        {/* Department filter */}
         <div className="relative">
           <select
-            value={groupFilter}
-            onChange={(e) => setGroupFilter(e.target.value)}
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
             className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 bg-white transition-all cursor-pointer"
           >
-            <option value="">Todos los grupos</option>
-            {DEPARTMENTS.map((dept) => (
-              <option key={dept.value} value={dept.value}>
-                {dept.label}
+            <option value="">Todos los departamentos</option>
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
               </option>
             ))}
           </select>
@@ -373,10 +377,10 @@ export default function DocumentsPage() {
               </button>
             </span>
           )}
-          {groupFilter && (
+          {deptFilter && (
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#EFF6FF] text-[#2563EB] text-xs rounded">
-              Grupo: {DEPARTMENTS.find(d => d.value === groupFilter)?.label || groupFilter}
-              <button onClick={() => setGroupFilter('')}>
+              Dept: {departments.find(d => d.id === deptFilter)?.name || deptFilter}
+              <button onClick={() => setDeptFilter('')}>
                 <X className="w-3 h-3" />
               </button>
             </span>
@@ -430,7 +434,7 @@ export default function DocumentsPage() {
                     Fecha apr.
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
-                    Grupo
+                    Dept
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
                     Visibilidad
@@ -477,7 +481,7 @@ export default function DocumentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
-                        {DEPARTMENTS.find(d => d.value === doc.targetGroup)?.label || doc.targetGroup}
+                        {departments.find(d => d.id === doc.departmentId)?.name || '- '}
                       </span>
                     </td>
                     <td className="px-4 py-3">

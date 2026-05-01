@@ -11,6 +11,7 @@ import {
   History,
   Settings,
   Crown,
+  Layers,
   Menu,
   X,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ const mainNavItems = [
 
 const adminNavItems = [
   { label: 'Centros', path: '/admin/centers', icon: Building2 },
+  { label: 'Departamentos', path: '/admin/departments', icon: Layers },
   { label: 'Usuarios', path: '/admin/users', icon: Users },
   { label: 'Temas', path: '/admin/topics', icon: FolderOpen },
 ]

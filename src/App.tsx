@@ -11,6 +11,7 @@ import AdminDocumentsPage from './pages/AdminDocumentsPage'
 import AdminDocumentEditorPage from './pages/AdminDocumentEditorPage'
 import AdminLogPage from './pages/AdminLogPage'
 import AdminAlarmsPage from './pages/AdminAlarmsPage'
+import AdminDepartmentsPage from './pages/AdminDepartmentsPage'
 import PublicDocumentPage from './pages/PublicDocumentPage'
 import MasterClientsPage from './pages/MasterClientsPage'
 import MasterClientDetailPage from './pages/MasterClientDetailPage'
@@ -87,6 +88,14 @@ export default function App() {
         element={
           <AppLayout>
             <AdminDocumentEditorPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/admin/departments"
+        element={
+          <AppLayout>
+            <AdminDepartmentsPage />
           </AppLayout>
         }
       />

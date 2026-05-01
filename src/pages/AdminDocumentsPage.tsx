@@ -80,7 +80,7 @@ export default function AdminDocumentsPage() {
   }
 
   const handleToggleVisible = async (doc: Document) => {
-    const updated = await toggleDocumentVisibility(doc.id, !doc.isVisible)
+    const updated = await toggleDocumentVisibility(doc.id)
     setDocuments((prev) => prev.map((d) => (d.id === doc.id ? updated : d)))
     toast.success(updated.isVisible ? 'Documento visible para usuarios' : 'Documento oculto')
   }

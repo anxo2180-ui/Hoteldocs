@@ -37,9 +37,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-import type { User, Center, Department } from '@/types'
-import type { UserRole } from '@/types'
-import { DEPARTMENTS } from '@/types'
+import type { User, Center, UserRole } from '@/types'
 import {
   getUsers,
   getCenters,
@@ -86,6 +84,7 @@ export default function AdminUsersPage() {
   const navigate = useNavigate()
   const [users, setUsers] = useState<User[]>([])
   const [centers, setCenters] = useState<Center[]>([])
+  const [departments] = useState<{id: string; name: string; code: string}[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -95,7 +94,7 @@ export default function AdminUsersPage() {
   const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState<UserRole>('user')
   const [formCenterId, setFormCenterId] = useState('')
-  const [formDepartment, setFormDepartment] = useState<Department>('todos')
+  const [formDepartmentId, setFormDepartmentId] = useState<string>('')
   const [formActive, setFormActive] = useState(true)
 
   useEffect(() => {
@@ -132,7 +131,7 @@ export default function AdminUsersPage() {
     setFormEmail('')
     setFormRole('user')
     setFormCenterId(centers[0]?.id ?? '')
-    setFormDepartment('todos')
+    setFormDepartmentId(departments[0]?.id ?? '')
     setFormActive(true)
     setModalOpen(true)
   }
@@ -142,8 +141,8 @@ export default function AdminUsersPage() {
     setFormName(user.name)
     setFormEmail(user.email)
     setFormRole(user.role)
-    setFormCenterId(user.centerId ?? '')
-    setFormDepartment((user.department ?? 'todos') as Department)
+    setFormCenterId((user.centerIds || [])[0] ?? '')
+    setFormDepartmentId(user.departmentId ?? '')
     setFormActive(user.isActive)
     setModalOpen(true)
   }
@@ -157,8 +156,8 @@ export default function AdminUsersPage() {
         name: formName.trim(),
         email: formEmail.trim(),
         role: formRole,
-        centerId: formRole === 'hotelAdmin' || formRole === 'user' ? formCenterId : null,
-        department: formDepartment,
+        centerIds: formRole === 'hotelAdmin' || formRole === 'user' ? (formCenterId ? [formCenterId] : []) : [],
+        departmentId: formDepartmentId || null,
         isActive: formActive,
       })
       await addAuditLogEntry({
@@ -175,8 +174,8 @@ export default function AdminUsersPage() {
         email: formEmail.trim(),
         role: formRole,
         clientId: (auth as any)?.clientId || null,
-        centerId: formRole === 'hotelAdmin' || formRole === 'user' ? (formCenterId || centers[0]?.id || '') : null,
-        department: formDepartment,
+        centerIds: formRole === 'hotelAdmin' || formRole === 'user' ? (formCenterId ? [formCenterId] : (centers[0]?.id ? [centers[0].id] : [])) : [],
+        departmentId: formDepartmentId || null,
         isActive: formActive,
       })
       await addAuditLogEntry({
@@ -347,11 +346,11 @@ export default function AdminUsersPage() {
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-[#6B7280]">
-                          {centerName(user.centerId ?? '')}
+                          {(user.centerIds || []).map((cid: string) => centerName(cid)).join(', ')}
                         </td>
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
-                            {DEPARTMENTS.find(d => d.value === (user.department ?? 'todos'))?.label || user.department}
+                            {departments.find(d => d.id === user.departmentId)?.name || '-'}
                           </span>
                         </td>
                         <td className="py-3 px-4">
@@ -454,16 +453,16 @@ export default function AdminUsersPage() {
             <div className="space-y-1.5">
               <Label className="text-[13px] font-medium">Departamento</Label>
               <Select
-                value={formDepartment}
-                onValueChange={(v) => setFormDepartment(v as Department)}
+                value={formDepartmentId}
+                onValueChange={setFormDepartmentId}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar departamento" />
                 </SelectTrigger>
                 <SelectContent>
-                  {DEPARTMENTS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
