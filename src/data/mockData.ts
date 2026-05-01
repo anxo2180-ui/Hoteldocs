@@ -130,6 +130,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-06-01T08:00:00Z',
     updatedAt: '2025-01-10T10:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-2',
@@ -145,6 +146,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-07-10T10:00:00Z',
     updatedAt: '2025-02-15T09:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-3',
@@ -160,6 +162,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-3',
     createdAt: '2025-03-01T14:00:00Z',
     updatedAt: '2025-03-01T14:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-4',
@@ -175,6 +178,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-05-20T09:00:00Z',
     updatedAt: '2024-12-01T08:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-5',
@@ -190,6 +194,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-4',
     createdAt: '2024-08-15T10:00:00Z',
     updatedAt: '2025-01-20T11:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-6',
@@ -205,6 +210,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-4',
     createdAt: '2025-04-01T08:00:00Z',
     updatedAt: '2025-04-01T08:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-7',
@@ -220,6 +226,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-09-10T09:00:00Z',
     updatedAt: '2025-02-28T15:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-8',
@@ -235,6 +242,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-06-01T08:00:00Z',
     updatedAt: '2025-03-15T12:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-9',
@@ -250,6 +258,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-2',
     createdAt: '2025-03-20T10:00:00Z',
     updatedAt: '2025-03-20T10:00:00Z',
+    sourceType: 'manual',
   },
   {
     id: 'doc-10',
@@ -265,6 +274,7 @@ export const mockDocuments: Document[] = [
     createdBy: 'user-1',
     createdAt: '2024-11-10T10:00:00Z',
     updatedAt: '2025-01-05T09:00:00Z',
+    sourceType: 'manual',
   },
 ]
 
