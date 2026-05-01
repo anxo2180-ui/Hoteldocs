@@ -37,7 +37,6 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,

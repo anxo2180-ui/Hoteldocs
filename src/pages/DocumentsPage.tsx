@@ -12,8 +12,9 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react'
-import { getDocuments, getTopics, getCenters, updateDocument } from '@/data/api'
-import type { Document, Topic, Center } from '@/types'
+import { getDocuments, getDocumentsForUser, getTopics, getCenters, updateDocument } from '@/data/api'
+import type { Document, Topic, Center, User } from '@/types'
+import { DEPARTMENTS } from '@/types'
 import StatusBadge from '@/components/StatusBadge'
 import EmptyState from '@/components/EmptyState'
 
@@ -23,6 +24,7 @@ interface AuthData {
   name: string
   role: 'admin' | 'user'
   centerId: string
+  department: string | null
 }
 
 function getAuth(): AuthData | null {
@@ -75,6 +77,8 @@ export default function DocumentsPage() {
   const [topicFilter, setTopicFilter] = useState('')
   const [centerFilter, setCenterFilter] = useState('')
   const [onlyApprovedVisible, setOnlyApprovedVisible] = useState(false)
+  const [groupFilter, setGroupFilter] = useState('')
+  const [visibilityFilter, setVisibilityFilter] = useState('')
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -84,8 +88,11 @@ export default function DocumentsPage() {
     }
     async function load() {
       try {
+        // Get current user for permission filtering
+        const authData = getAuth()
+        const docsPromise = isAdmin ? getDocuments() : getDocumentsForUser(authData as unknown as User)
         const [d, t, c] = await Promise.all([
-          getDocuments(),
+          docsPromise,
           getTopics(),
           getCenters(),
         ])
@@ -109,13 +116,8 @@ export default function DocumentsPage() {
   const filteredDocs = useMemo(() => {
     let list = [...docs]
 
-    // User sees only approved + visible docs from their center
-    if (!isAdmin && auth) {
-      list = list.filter(
-        (d) =>
-          d.status === 'approved' && d.isVisible && d.centerId === auth.centerId
-      )
-    }
+    // User permission filtering is now handled by getDocumentsForUser
+    // Additional frontend filters below
 
     if (search.trim()) {
       const q = search.trim().toLowerCase()
@@ -128,6 +130,14 @@ export default function DocumentsPage() {
 
     if (centerFilter) {
       list = list.filter((d) => d.centerId === centerFilter)
+    }
+
+    if (groupFilter) {
+      list = list.filter((d) => d.targetGroup === groupFilter)
+    }
+
+    if (visibilityFilter) {
+      list = list.filter((d) => d.visibility === visibilityFilter)
     }
 
     if (onlyApprovedVisible) {
@@ -143,7 +153,7 @@ export default function DocumentsPage() {
     })
 
     return list
-  }, [docs, search, topicFilter, centerFilter, onlyApprovedVisible, isAdmin, auth])
+  }, [docs, search, topicFilter, centerFilter, groupFilter, visibilityFilter, onlyApprovedVisible, isAdmin, auth])
 
   const handleToggleVisible = async (doc: Document) => {
     try {
@@ -156,7 +166,7 @@ export default function DocumentsPage() {
   }
 
   const hasActiveFilters =
-    search.trim() || topicFilter || centerFilter || onlyApprovedVisible
+    search.trim() || topicFilter || centerFilter || groupFilter || visibilityFilter || onlyApprovedVisible
 
   const topicMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -174,6 +184,8 @@ export default function DocumentsPage() {
     setSearch('')
     setTopicFilter('')
     setCenterFilter('')
+    setGroupFilter('')
+    setVisibilityFilter('')
     setOnlyApprovedVisible(false)
   }
 
@@ -273,6 +285,38 @@ export default function DocumentsPage() {
           </div>
         )}
 
+        {/* Group filter */}
+        <div className="relative">
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 bg-white transition-all cursor-pointer"
+          >
+            <option value="">Todos los grupos</option>
+            {DEPARTMENTS.map((dept) => (
+              <option key={dept.value} value={dept.value}>
+                {dept.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
+        </div>
+
+        {/* Visibility filter */}
+        <div className="relative">
+          <select
+            value={visibilityFilter}
+            onChange={(e) => setVisibilityFilter(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 bg-white transition-all cursor-pointer"
+          >
+            <option value="">Todas las visibilidades</option>
+            <option value="private">Privado</option>
+            <option value="all">Todos los usuarios</option>
+            <option value="public">Público QR</option>
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
+        </div>
+
         {/* Toggle approved visible */}
         <label className="inline-flex items-center gap-2 cursor-pointer">
           <div
@@ -329,6 +373,22 @@ export default function DocumentsPage() {
               </button>
             </span>
           )}
+          {groupFilter && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#EFF6FF] text-[#2563EB] text-xs rounded">
+              Grupo: {DEPARTMENTS.find(d => d.value === groupFilter)?.label || groupFilter}
+              <button onClick={() => setGroupFilter('')}>
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {visibilityFilter && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#EFF6FF] text-[#2563EB] text-xs rounded">
+              Visibilidad: {visibilityFilter === 'private' ? 'Privado' : visibilityFilter === 'all' ? 'Todos' : 'Público QR'}
+              <button onClick={() => setVisibilityFilter('')}>
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
           {onlyApprovedVisible && (
             <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#EFF6FF] text-[#2563EB] text-xs rounded">
               Solo visibles
@@ -370,6 +430,12 @@ export default function DocumentsPage() {
                     Fecha apr.
                   </th>
                   <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
+                    Grupo
+                  </th>
+                  <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
+                    Visibilidad
+                  </th>
+                  <th className="px-4 py-2 text-xs font-medium text-[#6B7280] uppercase">
                     Estado
                   </th>
                   {isAdmin && (
@@ -394,12 +460,9 @@ export default function DocumentsPage() {
                     onClick={() => navigate(`/documents/${doc.id}`)}
                   >
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-medium text-[#111827] truncate max-w-[220px]">
-                          {doc.title}
-                        </span>
-                        <StatusBadge status={doc.status} />
-                      </div>
+                      <span className="text-[13px] font-medium text-[#111827] truncate max-w-[240px]">
+                        {doc.title}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
@@ -411,6 +474,22 @@ export default function DocumentsPage() {
                     </td>
                     <td className="px-4 py-3 text-[13px] text-[#6B7280]">
                       {formatDate(doc.approvalDate)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
+                        {DEPARTMENTS.find(d => d.value === doc.targetGroup)?.label || doc.targetGroup}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                        doc.visibility === 'public'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : doc.visibility === 'all'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-gray-50 text-gray-700'
+                      }`}>
+                        {doc.visibility === 'public' ? 'Público QR' : doc.visibility === 'all' ? 'Todos' : 'Privado'}
+                      </span>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <StatusBadge status={doc.status} />

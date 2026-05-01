@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 export default function DocumentViewerPage() {
   const { id } = useParams<{ id: string }>()
   const [loading, setLoading] = useState(true)
-  const [document, setDocument] = useState<Document | null>(null)
+  const [currentDoc, setCurrentDoc] = useState<Document | null>(null)
   const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
   const [activeTab, setActiveTab] = useState('wiki')
 
@@ -29,7 +29,7 @@ export default function DocumentViewerPage() {
       if (!id) return
       const doc = await getDocumentById(id)
       if (doc) {
-        setDocument(doc)
+        setCurrentDoc(doc)
         const atts = await getAttachmentsByDocumentId(id)
         setAttachments(atts)
       } else {
@@ -48,7 +48,7 @@ export default function DocumentViewerPage() {
   }
 
   const handleDownloadSigned = (att: DocumentAttachment) => {
-    const a = document.createElement('a')
+    const a = window.document.createElement('a')
     a.href = att.fileUrl
     a.download = att.fileName
     a.click()
@@ -66,7 +66,7 @@ export default function DocumentViewerPage() {
     )
   }
 
-  if (!document) {
+  if (!currentDoc) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -86,8 +86,8 @@ export default function DocumentViewerPage() {
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl font-semibold text-[#111827]">{document.title}</h1>
-            {document.sourceType === 'pdf-import' && (
+            <h1 className="text-2xl font-semibold text-[#111827]">{currentDoc.title}</h1>
+            {currentDoc.sourceType === 'pdf-import' && (
               <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
                 <Sparkles className="w-3 h-3 mr-1" />
                 Conversión IA
@@ -98,25 +98,25 @@ export default function DocumentViewerPage() {
             <Badge
               variant="outline"
               className={
-                document.status === 'approved'
+                currentDoc.status === 'approved'
                   ? 'text-emerald-700 border-emerald-300 bg-emerald-50'
-                  : document.status === 'draft'
+                  : currentDoc.status === 'draft'
                   ? 'text-gray-600 border-gray-300 bg-gray-50'
-                  : document.status === 'pending'
+                  : currentDoc.status === 'pending'
                   ? 'text-amber-700 border-amber-300 bg-amber-50'
                   : 'text-red-700 border-red-300 bg-red-50'
               }
             >
-              {document.status === 'approved' && 'Aprobado'}
-              {document.status === 'draft' && 'Borrador'}
-              {document.status === 'pending' && 'Pendiente'}
-              {document.status === 'discontinued' && 'Descontinuado'}
+              {currentDoc.status === 'approved' && 'Aprobado'}
+              {currentDoc.status === 'draft' && 'Borrador'}
+              {currentDoc.status === 'pending' && 'Pendiente'}
+              {currentDoc.status === 'discontinued' && 'Descontinuado'}
             </Badge>
-            <span>Versión {document.version}</span>
-            {document.approvalDate && (
+            <span>Versión {currentDoc.version}</span>
+            {currentDoc.approvalDate && (
               <span>
                 Aprobado el{' '}
-                {new Date(document.approvalDate).toLocaleDateString('es-ES')}
+                {new Date(currentDoc.approvalDate).toLocaleDateString('es-ES')}
               </span>
             )}
           </div>
@@ -155,7 +155,7 @@ export default function DocumentViewerPage() {
             <div className="p-6">
               <div
                 className="prose prose-sm max-w-none prose-headings:text-[#111827] prose-p:text-[#374151]"
-                dangerouslySetInnerHTML={{ __html: document.content }}
+                dangerouslySetInnerHTML={{ __html: currentDoc.content }}
               />
             </div>
           </div>

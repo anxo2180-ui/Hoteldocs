@@ -5,11 +5,13 @@
 
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
-    // Try pdf-parse first (works in Node.js, may fail in browser)
+    // Try pdf-parse first (Node.js only, will fail in browser and fall back)
     const pdfParse = await import('pdf-parse')
     const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const data = await pdfParse.default(buffer)
+    // @ts-ignore - Buffer is Node.js only, falls back in browser
+    const buffer = typeof Buffer !== 'undefined' ? Buffer.from(arrayBuffer) : new Uint8Array(arrayBuffer)
+    // @ts-ignore - ESM/CJS interop
+    const data = await (pdfParse.default || pdfParse)(buffer)
     return data.text
   } catch {
     // Browser fallback: read as text/plain and clean up

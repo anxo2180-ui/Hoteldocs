@@ -32,13 +32,13 @@ import {
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
 
-import type { User, Center } from '@/types'
+import type { User, Center, Department } from '@/types'
+import { DEPARTMENTS } from '@/types'
 import {
   getUsers,
   getCenters,
@@ -94,6 +94,7 @@ export default function AdminUsersPage() {
   const [formEmail, setFormEmail] = useState('')
   const [formRole, setFormRole] = useState<'admin' | 'user'>('user')
   const [formCenterId, setFormCenterId] = useState('')
+  const [formDepartment, setFormDepartment] = useState<Department>('todos')
   const [formActive, setFormActive] = useState(true)
 
   useEffect(() => {
@@ -130,6 +131,7 @@ export default function AdminUsersPage() {
     setFormEmail('')
     setFormRole('user')
     setFormCenterId(centers[0]?.id ?? '')
+    setFormDepartment('todos')
     setFormActive(true)
     setModalOpen(true)
   }
@@ -140,6 +142,7 @@ export default function AdminUsersPage() {
     setFormEmail(user.email)
     setFormRole(user.role)
     setFormCenterId(user.centerId)
+    setFormDepartment((user.department ?? 'todos') as Department)
     setFormActive(user.isActive)
     setModalOpen(true)
   }
@@ -154,6 +157,7 @@ export default function AdminUsersPage() {
         email: formEmail.trim(),
         role: formRole,
         centerId: formCenterId,
+        department: formDepartment,
         isActive: formActive,
       })
       await addAuditLogEntry({
@@ -170,6 +174,7 @@ export default function AdminUsersPage() {
         email: formEmail.trim(),
         role: formRole,
         centerId: formCenterId || centers[0]?.id || '',
+        department: formDepartment,
         isActive: formActive,
       })
       await addAuditLogEntry({
@@ -292,6 +297,9 @@ export default function AdminUsersPage() {
                       Centro
                     </TableHead>
                     <TableHead className="text-xs font-medium uppercase text-[#6B7280] py-3 px-4">
+                      Departamento
+                    </TableHead>
+                    <TableHead className="text-xs font-medium uppercase text-[#6B7280] py-3 px-4">
                       Estado
                     </TableHead>
                     <TableHead className="text-xs font-medium uppercase text-[#6B7280] py-3 px-4 text-right">
@@ -338,6 +346,11 @@ export default function AdminUsersPage() {
                         </td>
                         <td className="py-3 px-4 text-sm text-[#6B7280]">
                           {centerName(user.centerId)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
+                            {DEPARTMENTS.find(d => d.value === (user.department ?? 'todos'))?.label || user.department}
+                          </span>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
@@ -434,6 +447,27 @@ export default function AdminUsersPage() {
               </Select>
               <p className="text-xs text-[#6B7280]">
                 El usuario solo verá documentos de este centro
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-medium">Departamento</Label>
+              <Select
+                value={formDepartment}
+                onValueChange={(v) => setFormDepartment(v as Department)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar departamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-[#6B7280]">
+                El usuario solo verá documentos dirigidos a este departamento (o a 'Todos')
               </p>
             </div>
             <div className="space-y-1.5">

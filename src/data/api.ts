@@ -1,4 +1,4 @@
-import type { User, Center, Topic, Document, DocumentAttachment, AuditLogEntry, Alarm } from '@/types'
+import type { User, Center, Topic, Document, DocumentAttachment, AuditLogEntry, Alarm, Department, DocumentVisibility } from '@/types'
 import {
   mockCenters,
   mockUsers,
@@ -66,10 +66,51 @@ export async function getDocuments(): Promise<Document[]> {
   return delay(getItem<Document>(KEYS.documents))
 }
 
+// Get documents filtered by user permissions
+export async function getDocumentsForUser(user: User | null): Promise<Document[]> {
+  ensureSeeded()
+  const docs = getItem<Document>(KEYS.documents)
+
+  // Admin sees everything
+  if (user?.role === 'admin') {
+    return delay(docs)
+  }
+
+  const userDept = user?.department ?? null
+
+  const filtered = docs.filter((doc) => {
+    // Public documents are always visible
+    if (doc.visibility === 'public') return true
+
+    // Must be approved and visible
+    if (doc.status !== 'approved' || !doc.isVisible) return false
+
+    // Must have a user logged in for non-public docs
+    if (!userDept) return false
+
+    // Document must match user's department or be for 'todos'
+    const matchesDept = doc.targetGroup === userDept || doc.targetGroup === 'todos'
+
+    return matchesDept
+  })
+
+  return delay(filtered)
+}
+
 export async function getDocumentById(id: string): Promise<Document | null> {
   ensureSeeded()
   const docs = getItem<Document>(KEYS.documents)
   const doc = docs.find((d) => d.id === id) ?? null
+  return delay(doc)
+}
+
+// Get publicly accessible document (for QR / no login)
+export async function getPublicDocumentById(id: string): Promise<Document | null> {
+  ensureSeeded()
+  const docs = getItem<Document>(KEYS.documents)
+  const doc = docs.find((d) => d.id === id) ?? null
+  // Only return if it's public and approved
+  if (!doc || doc.visibility !== 'public' || doc.status !== 'approved') return null
   return delay(doc)
 }
 
@@ -79,6 +120,8 @@ export async function createDocument(doc: Omit<Document, 'id' | 'createdAt' | 'u
   const newDoc: Document = {
     ...doc,
     sourceType: doc.sourceType ?? 'manual',
+    targetGroup: doc.targetGroup ?? 'todos',
+    visibility: doc.visibility ?? 'private',
     id: `doc-${Date.now()}`,
     createdAt: now,
     updatedAt: now,
@@ -309,6 +352,8 @@ export async function uploadPDFAndConvert(
     centerId: string
     createdBy: string
     status?: 'draft' | 'pending' | 'approved' | 'discontinued'
+    targetGroup?: Department
+    visibility?: DocumentVisibility
   }
 ): Promise<{ document: Document; attachment: DocumentAttachment }> {
   ensureSeeded()
@@ -327,6 +372,8 @@ export async function uploadPDFAndConvert(
     content: html,
     topicId: documentData.topicId,
     centerId: documentData.centerId,
+    targetGroup: documentData.targetGroup ?? 'todos',
+    visibility: documentData.visibility ?? 'private',
     status: documentData.status ?? 'draft',
     version: 1,
     approvalDate: null,

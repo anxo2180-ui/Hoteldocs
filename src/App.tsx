@@ -11,6 +11,7 @@ import AdminDocumentsPage from './pages/AdminDocumentsPage'
 import AdminDocumentEditorPage from './pages/AdminDocumentEditorPage'
 import AdminLogPage from './pages/AdminLogPage'
 import AdminAlarmsPage from './pages/AdminAlarmsPage'
+import PublicDocumentPage from './pages/PublicDocumentPage'
 import AppShell from './components/AppShell'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -94,6 +95,7 @@ export default function App() {
           </AppLayout>
         }
       />
+      <Route path="/public/:id" element={<PublicDocumentPage />} />
       <Route
         path="/admin/alarms"
         element={

@@ -13,7 +13,8 @@ import {
   Paperclip,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { Document, DocumentAttachment, Topic, Center } from '@/types'
+import type { Document, DocumentAttachment, Topic, Center, Department, DocumentVisibility } from '@/types'
+import { DEPARTMENTS } from '@/types'
 import {
   getDocumentById,
   createDocument,
@@ -58,6 +59,8 @@ export default function AdminDocumentEditorPage() {
   const [centerId, setCenterId] = useState('')
   const [status, setStatus] = useState<Document['status']>('draft')
   const [isVisible, setIsVisible] = useState(false)
+  const [targetGroup, setTargetGroup] = useState<Department>('todos')
+  const [visibility, setVisibility] = useState<DocumentVisibility>('private')
   const [sourceType, setSourceType] = useState<Document['sourceType']>('manual')
 
   // PDF import state
@@ -83,6 +86,8 @@ export default function AdminDocumentEditorPage() {
           setCenterId(doc.centerId)
           setStatus(doc.status)
           setIsVisible(doc.isVisible)
+          setTargetGroup(doc.targetGroup)
+          setVisibility(doc.visibility)
           setSourceType(doc.sourceType)
           const atts = await getAttachmentsByDocumentId(id)
           setAttachments(atts)
@@ -113,6 +118,8 @@ export default function AdminDocumentEditorPage() {
           content,
           topicId,
           centerId,
+          targetGroup,
+          visibility,
           status,
           version: 1,
           approvalDate: null,
@@ -147,6 +154,8 @@ export default function AdminDocumentEditorPage() {
           content,
           topicId,
           centerId,
+          targetGroup,
+          visibility,
           status,
           isVisible,
           sourceType,
@@ -368,6 +377,46 @@ export default function AdminDocumentEditorPage() {
               </label>
             </div>
           </div>
+
+          {/* Target Group & Visibility */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-[#374151] mb-1">Grupo destinatario</label>
+              <Select value={targetGroup} onValueChange={(v) => setTargetGroup(v as Department)}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Seleccionar grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DEPARTMENTS.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#374151] mb-1">Visibilidad</label>
+              <Select
+                value={visibility}
+                onValueChange={(v) => setVisibility(v as DocumentVisibility)}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="private">Privado (requiere login)</SelectItem>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  <SelectItem value="public">Público QR (sin login)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {visibility === 'public' && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-md p-3 text-sm text-emerald-800">
+              <strong>Documento Público:</strong> Este documento será accesible públicamente mediante QR sin necesidad de inicio de sesión. Úsalo para protocolos generales, normas de seguridad o información que todos los empleados necesiten consultar.
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-[#374151] mb-1">
