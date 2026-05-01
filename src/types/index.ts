@@ -1,6 +1,7 @@
 export type UserRole = 'admin' | 'user'
 export type CenterStatus = 'active' | 'paused'
 export type DocumentStatus = 'draft' | 'pending' | 'approved' | 'discontinued'
+export type DocumentSourceType = 'manual' | 'pdf-import'
 
 export interface User {
   id: string
@@ -41,6 +42,7 @@ export interface Document {
   createdBy: string
   createdAt: string
   updatedAt: string
+  sourceType: DocumentSourceType
 }
 
 export interface DocumentAttachment {
@@ -49,6 +51,7 @@ export interface DocumentAttachment {
   fileName: string
   fileUrl: string
   fileType: string
+  isSignedOriginal: boolean
   createdAt: string
 }
 

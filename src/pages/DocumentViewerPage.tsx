@@ -1,316 +1,258 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   FileText,
-  Building2,
-  Calendar,
-  Hash,
-  Download,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  User,
-  ArrowLeft,
   Loader2,
+  ShieldCheck,
+  Download,
+  Sparkles,
+  Eye,
+  FileCheck,
+  Paperclip,
 } from 'lucide-react'
-import { getDocumentById, getDocuments, getTopics, getCenters, getUsers } from '@/data/api'
-import type { Document, Topic, Center, User as UserType } from '@/types'
-import StatusBadge from '@/components/StatusBadge'
-
-interface AuthData {
-  id: string
-  email: string
-  name: string
-  role: 'admin' | 'user'
-  centerId: string
-}
-
-function getAuth(): AuthData | null {
-  const raw = localStorage.getItem('hoteldocs_auth')
-  if (!raw) return null
-  try {
-    return JSON.parse(raw) as AuthData
-  } catch {
-    return null
-  }
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
-}
+import { toast } from 'sonner'
+import type { Document, DocumentAttachment } from '@/types'
+import { getDocumentById, getAttachmentsByDocumentId } from '@/data/api'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export default function DocumentViewerPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const auth = getAuth()
-  const isAdmin = auth?.role === 'admin'
-
-  const [doc, setDoc] = useState<Document | null>(null)
-  const [docs, setDocs] = useState<Document[]>([])
-  const [topics, setTopics] = useState<Topic[]>([])
-  const [centers, setCenters] = useState<Center[]>([])
-  const [users, setUsers] = useState<UserType[]>([])
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState<string | null>(null)
+  const [document, setDocument] = useState<Document | null>(null)
+  const [attachments, setAttachments] = useState<DocumentAttachment[]>([])
+  const [activeTab, setActiveTab] = useState('wiki')
 
   useEffect(() => {
-    if (!auth) {
-      navigate('/login', { replace: true })
-      return
-    }
     async function load() {
-      try {
-        const [d, allDocs, t, c, u] = await Promise.all([
-          getDocumentById(id ?? ''),
-          getDocuments(),
-          getTopics(),
-          getCenters(),
-          getUsers(),
-        ])
-        setDoc(d)
-        setDocs(allDocs)
-        setTopics(t)
-        setCenters(c)
-        setUsers(u)
-      } finally {
-        setLoading(false)
+      if (!id) return
+      const doc = await getDocumentById(id)
+      if (doc) {
+        setDocument(doc)
+        const atts = await getAttachmentsByDocumentId(id)
+        setAttachments(atts)
+      } else {
+        toast.error('Documento no encontrado')
       }
+      setLoading(false)
     }
     load()
-  }, [id, auth, navigate])
+  }, [id])
 
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000)
-      return () => clearTimeout(timer)
-    }
-  }, [toast])
+  const signedAttachments = attachments.filter((a) => a.isSignedOriginal)
+  const otherAttachments = attachments.filter((a) => !a.isSignedOriginal)
 
-  const topicMap = useMemo(() => {
-    const map: Record<string, Topic> = {}
-    topics.forEach((t) => (map[t.id] = t))
-    return map
-  }, [topics])
+  const handleDownloadWiki = () => {
+    toast.info('Descarga como PDF disponible próximamente')
+  }
 
-  const centerMap = useMemo(() => {
-    const map: Record<string, string> = {}
-    centers.forEach((c) => (map[c.id] = c.name))
-    return map
-  }, [centers])
-
-  const userMap = useMemo(() => {
-    const map: Record<string, string> = {}
-    users.forEach((u) => (map[u.id] = u.name))
-    return map
-  }, [users])
-
-  // Prev/Next in same topic
-  const { prevDoc, nextDoc } = useMemo(() => {
-    if (!doc) return { prevDoc: null as Document | null, nextDoc: null as Document | null }
-    const topicDocs = docs
-      .filter((d) => d.topicId === doc.topicId)
-      .sort((a, b) => a.title.localeCompare(b.title))
-    const idx = topicDocs.findIndex((d) => d.id === doc.id)
-    return {
-      prevDoc: idx > 0 ? topicDocs[idx - 1] : null,
-      nextDoc: idx < topicDocs.length - 1 ? topicDocs[idx + 1] : null,
-    }
-  }, [doc, docs])
-
-  const handleDownload = () => {
-    setToast('Descargando... se añadirá marca de agua')
+  const handleDownloadSigned = (att: DocumentAttachment) => {
+    const a = document.createElement('a')
+    a.href = att.fileUrl
+    a.download = att.fileName
+    a.click()
+    toast.success(`Descargando ${att.fileName}`)
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-[#2563EB]" />
+      <div className="p-6">
+        <div className="flex items-center gap-2 text-sm text-[#6B7280]">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Cargando documento...
+        </div>
       </div>
     )
   }
 
-  if (!doc) {
+  if (!document) {
     return (
-      <div className="pt-6 text-center">
-        <FileText className="w-12 h-12 text-[#D1D5DB] mx-auto mb-4" />
-        <h2 className="text-lg font-medium text-[#111827]">Documento no encontrado</h2>
-        <p className="mt-2 text-sm text-[#6B7280]">
-          El documento que buscas no existe o ha sido eliminado.
-        </p>
-        <Link
-          to="/documents"
-          className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-[#2563EB] text-white text-sm font-medium rounded-md hover:bg-[#1D4ED8] transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a documentos
-        </Link>
+      <div className="p-6">
+        <div className="text-center py-12">
+          <FileText className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-[#111827]">Documento no encontrado</h2>
+          <p className="text-sm text-[#6B7280] mt-1">
+            El documento que buscas no existe o ha sido eliminado.
+          </p>
+        </div>
       </div>
     )
   }
-
-  const topic = topicMap[doc.topicId]
-  const authorName = userMap[doc.createdBy] || 'Desconocido'
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="pt-2 pb-10"
-    >
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-4 right-4 z-50 bg-[#111827] text-white text-sm px-4 py-2 rounded-md shadow-lg">
-          {toast}
-        </div>
-      )}
-
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-[#6B7280]">
-        <Link to="/documents" className="text-[#2563EB] hover:underline">
-          Documentos
-        </Link>
-        <span>/</span>
-        {topic && (
-          <>
-            <Link
-              to={`/documents?topic=${topic.id}`}
-              className="text-[#2563EB] hover:underline"
+    <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-semibold text-[#111827]">{document.title}</h1>
+            {document.sourceType === 'pdf-import' && (
+              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
+                <Sparkles className="w-3 h-3 mr-1" />
+                Conversión IA
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-2 text-sm text-[#6B7280]">
+            <Badge
+              variant="outline"
+              className={
+                document.status === 'approved'
+                  ? 'text-emerald-700 border-emerald-300 bg-emerald-50'
+                  : document.status === 'draft'
+                  ? 'text-gray-600 border-gray-300 bg-gray-50'
+                  : document.status === 'pending'
+                  ? 'text-amber-700 border-amber-300 bg-amber-50'
+                  : 'text-red-700 border-red-300 bg-red-50'
+              }
             >
-              {topic.name}
-            </Link>
-            <span>/</span>
-          </>
-        )}
-        <span className="text-[#111827] font-medium truncate max-w-[280px]">{doc.title}</span>
-      </nav>
-
-      {/* Header Card */}
-      <div className="mt-4 bg-white border border-[#E5E7EB] rounded-lg p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <StatusBadge status={doc.status} />
-            {topic && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#F3F4F6] text-[#374151]">
-                {topic.name}
+              {document.status === 'approved' && 'Aprobado'}
+              {document.status === 'draft' && 'Borrador'}
+              {document.status === 'pending' && 'Pendiente'}
+              {document.status === 'discontinued' && 'Descontinuado'}
+            </Badge>
+            <span>Versión {document.version}</span>
+            {document.approvalDate && (
+              <span>
+                Aprobado el{' '}
+                {new Date(document.approvalDate).toLocaleDateString('es-ES')}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <Link
-                to={`/admin/documents/${doc.id}/edit`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F3F4F6] text-[#111827] text-sm font-medium border border-[#E5E7EB] rounded-md hover:bg-[#E5E7EB] active:scale-[0.98] transition-all"
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList className="bg-[#F3F4F6]">
+          <TabsTrigger value="wiki" className="flex items-center gap-1.5">
+            <Eye className="w-4 h-4" />
+            Versión Wiki
+          </TabsTrigger>
+          <TabsTrigger value="signed" className="flex items-center gap-1.5">
+            <FileCheck className="w-4 h-4" />
+            Versión Firmada
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="wiki" className="mt-4">
+          <div className="rounded-lg border border-[#E5E7EB] bg-white overflow-hidden">
+            {/* Wiki toolbar */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB]">
+              <span className="text-sm font-medium text-[#374151]">Contenido wiki</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadWiki}
+                className="text-[#374151]"
               >
-                <Download className="w-4 h-4" />
-                Editar
-              </Link>
+                <Download className="w-4 h-4 mr-2" />
+                Descargar como PDF
+              </Button>
+            </div>
+            {/* Rendered HTML */}
+            <div className="p-6">
+              <div
+                className="prose prose-sm max-w-none prose-headings:text-[#111827] prose-p:text-[#374151]"
+                dangerouslySetInnerHTML={{ __html: document.content }}
+              />
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="signed" className="mt-4">
+          <div className="rounded-lg border border-[#E5E7EB] bg-white overflow-hidden">
+            {/* Signed toolbar */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#E5E7EB] bg-[#F9FAFB]">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-sm font-medium text-[#374151]">Versión certificada original</span>
+              </div>
+            </div>
+
+            {signedAttachments.length > 0 ? (
+              <div className="p-6 space-y-4">
+                {signedAttachments.map((att) => (
+                  <div
+                    key={att.id}
+                    className="flex items-center justify-between rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-[#EF4444]" />
+                      <div>
+                        <p className="text-sm font-medium text-[#374151]">{att.fileName}</p>
+                        <p className="text-xs text-[#9CA3AF]">PDF original certificado</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadSigned(att)}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Descargar versión certificada
+                    </Button>
+                  </div>
+                ))}
+
+                {/* Watermark notice */}
+                <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-xs text-amber-800">
+                    Este documento es la versión firmada/certificada original. Cualquier descarga incluye marca de agua de trazabilidad interna.
+                  </p>
+                </div>
+
+                {/* PDF Preview iframe */}
+                <div className="rounded-lg border border-[#E5E7EB] overflow-hidden">
+                  <iframe
+                    src={signedAttachments[0].fileUrl}
+                    title="PDF preview"
+                    className="w-full h-[600px]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="p-12 text-center">
+                <ShieldCheck className="w-10 h-10 text-[#D1D5DB] mx-auto mb-3" />
+                <p className="text-sm text-[#6B7280]">
+                  No hay versión firmada asociada a este documento.
+                </p>
+              </div>
             )}
-            <button
-              onClick={handleDownload}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] text-white text-sm font-medium rounded-md hover:bg-[#1D4ED8] active:scale-[0.98] transition-all"
-            >
-              <Download className="w-4 h-4" />
-              Descargar PDF
-            </button>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href)
-                setToast('Enlace copiado al portapapeles')
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[#6B7280] text-sm font-medium rounded-md hover:bg-[#F3F4F6] active:scale-[0.98] transition-all"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Compartir
-            </button>
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Other attachments */}
+      {otherAttachments.length > 0 && (
+        <div className="rounded-lg border border-[#E5E7EB] bg-white p-4">
+          <h3 className="text-sm font-semibold text-[#111827] mb-3 flex items-center gap-2">
+            <Paperclip className="w-4 h-4 text-[#6B7280]" />
+            Adjuntos adicionales
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {otherAttachments.map((att) => (
+              <div
+                key={att.id}
+                className="flex items-center gap-3 rounded-md border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2"
+              >
+                <FileText className="w-4 h-4 text-[#6B7280] shrink-0" />
+                <span className="text-sm text-[#374151] flex-1 truncate">{att.fileName}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[#6B7280]"
+                  onClick={() => handleDownloadSigned(att)}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
-
-        <h1 className="mt-3 text-[22px] font-semibold text-[#111827]">
-          {doc.title}
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-4 mt-2">
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6B7280]">
-            <Building2 className="w-4 h-4" />
-            {centerMap[doc.centerId] || doc.centerId}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6B7280]">
-            <Calendar className="w-4 h-4" />
-            Aprobado: {formatDate(doc.approvalDate)}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-xs text-[#9CA3AF] font-mono">
-            <Hash className="w-4 h-4" />
-            v{doc.version}
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6B7280]">
-            <User className="w-4 h-4" />
-            {authorName}
-          </span>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="mt-6 max-w-[840px]">
-        <div className="bg-white border border-[#E5E7EB] rounded-lg p-8">
-          <div
-            className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: doc.content }}
-          />
-        </div>
-      </div>
-
-      {/* Attachments */}
-      <div className="mt-6 max-w-[840px]">
-        <div className="bg-white border border-[#E5E7EB] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#E5E7EB]">
-            <h3 className="text-sm font-medium text-[#111827]">Archivos adjuntos</h3>
-          </div>
-          <div className="px-4 py-6 text-center text-sm text-[#9CA3AF]">
-            No hay archivos adjuntos
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <div className="mt-6 max-w-[840px] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {prevDoc && (
-            <button
-              onClick={() => navigate(`/documents/${prevDoc.id}`)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-md transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span className="max-w-[160px] truncate">{prevDoc.title}</span>
-            </button>
-          )}
-        </div>
-        <Link
-          to="/documents"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#F3F4F6] text-[#111827] text-sm font-medium border border-[#E5E7EB] rounded-md hover:bg-[#E5E7EB] active:scale-[0.98] transition-all"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver
-        </Link>
-        <div className="flex items-center gap-2">
-          {nextDoc && (
-            <button
-              onClick={() => navigate(`/documents/${nextDoc.id}`)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-md transition-all"
-            >
-              <span className="max-w-[160px] truncate">{nextDoc.title}</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-    </motion.div>
+      )}
+    </div>
   )
 }
