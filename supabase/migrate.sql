@@ -1,17 +1,17 @@
-# HotelDocs — Migración Supabase (Schema vacío → Multi-tenant)
-# ================================================================
-# Tu proyecto Supabase tiene el schema antiguo (sin clients, departments,
-# sin campos JSONB). Todas las tablas están VACÍAS, así que es seguro reconstruir.
-# 
-# INSTRUCCIONES:
-# 1. Ve a tu dashboard de Supabase: https://supabase.com/dashboard/project/hculvpzrtqcapzxyiqpf
-# 2. Entra a SQL Editor (en el menú lateral)
-# 3. Crea una "New query"
-# 4. Pega TODO este script
-# 5. Click "Run"
-# 6. Espera a que termine (puede tardar 10-20 segundos)
-# 7. Si ves "Success, no rows returned" → todo perfecto
-# ================================================================
+-- HotelDocs — Migración Supabase (Schema vacío → Multi-tenant)
+-- ================================================================
+-- Tu proyecto Supabase tiene el schema antiguo (sin clients, departments,
+-- sin campos JSONB). Todas las tablas están VACÍAS, así que es seguro reconstruir.
+-- 
+-- INSTRUCCIONES:
+-- 1. Ve a tu dashboard de Supabase: https://supabase.com/dashboard/project/hculvpzrtqcapzxyiqpf
+-- 2. Entra a SQL Editor (en el menú lateral)
+-- 3. Crea una "New query"
+-- 4. Pega TODO este script
+-- 5. Click "Run"
+-- 6. Espera a que termine (puede tardar 10-20 segundos)
+-- 7. Si ves "Success, no rows returned" → todo perfecto
+-- ================================================================
 
 -- ============================================================
 -- 0. LIMPIAR SCHEMA ANTIGUO (tablas vacías, seguro eliminar)
