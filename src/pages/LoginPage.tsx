@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTranslation } from '@/i18n'
+import { isSupabaseConfigured } from '@/data/supabase-client'
 import {
   FileText,
   Mail,
@@ -81,6 +82,49 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
+    // --- TRY SUPABASE AUTH FIRST ---
+    if (isSupabaseConfigured) {
+      try {
+        const { createClient } = await import('@supabase/supabase-js')
+        const url = import.meta.env.VITE_SUPABASE_URL
+        const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const supabase = createClient(url, key)
+
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password,
+        })
+
+        if (!authError && authData?.user) {
+          // Fetch user profile from public.users
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single()
+
+          if (profile) {
+            const authPayload = {
+              id: profile.id,
+              email: profile.email,
+              name: profile.name,
+              role: profile.role,
+              clientId: profile.client_id,
+              centerIds: profile.center_ids || [],
+              departmentId: profile.department_id,
+            }
+            localStorage.setItem('hoteldocs_auth', JSON.stringify(authPayload))
+            setLoading(false)
+            navigate('/dashboard', { replace: true })
+            return
+          }
+        }
+      } catch {
+        // Supabase failed, continue to localStorage fallback
+      }
+    }
+
+    // --- FALLBACK: LOCAL DEMO LOGIN ---
     await new Promise((resolve) => setTimeout(resolve, 800))
 
     const user = DEMO_USERS.find(
