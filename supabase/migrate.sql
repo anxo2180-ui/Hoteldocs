@@ -292,7 +292,7 @@ ALTER TABLE public.alarms ENABLE ROW LEVEL SECURITY;
 -- CLIENTS
 DO $$ BEGIN
   CREATE POLICY "clients_select" ON public.clients FOR SELECT TO authenticated
-    USING (public.get_current_user_role() = 'master' OR client_id = public.get_current_user_client_id());
+    USING (public.get_current_user_role() = 'master' OR id = public.get_current_user_client_id());
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE POLICY "clients_all_master" ON public.clients FOR ALL TO authenticated
