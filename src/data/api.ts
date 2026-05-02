@@ -1,5 +1,5 @@
 import type {
-  User, Center, Topic, Document, DocumentAttachment,
+  User, UserRole, Center, Topic, Document, DocumentAttachment,
   AuditLogEntry, Alarm, Client, Department,
   DocumentVisibility,
 } from '@/types'
@@ -61,6 +61,26 @@ export function getAuthFromStorage(): { id: string; name: string; role: string; 
     const parsed = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object' || !parsed.id) return null
     return parsed
+  } catch {
+    return null
+  }
+}
+
+// Get current auth user info with typed role
+export function getAuthUser(): { id: string; name: string; role: UserRole; clientId: string | null; centerIds: string[]; departmentId: string | null } | null {
+  try {
+    const raw = localStorage.getItem('hoteldocs_auth')
+    if (!raw || raw === 'null' || raw === 'undefined') return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || !parsed.id) return null
+    return {
+      id: parsed.id,
+      name: parsed.name,
+      role: parsed.role as UserRole,
+      clientId: parsed.clientId ?? null,
+      centerIds: parsed.centerIds ?? [],
+      departmentId: parsed.departmentId ?? null,
+    }
   } catch {
     return null
   }
@@ -194,6 +214,22 @@ export async function getUsers(): Promise<User[]> {
   ensureSeeded()
   return delay(getItem<User>(KEYS.users))
 }
+
+export async function getUsersForCurrentUser(): Promise<User[]> {
+  ensureSeeded()
+  const auth = getAuthUser()
+  if (!auth) return delay([])
+  const all = getItem<User>(KEYS.users)
+  if (auth.role === 'master') return delay(all)
+  if (auth.role === 'clientAdmin') return delay(all.filter(u => u.clientId === auth.clientId))
+  if (auth.role === 'hotelAdmin') {
+    const authUser = all.find(u => u.id === auth.id)
+    const centerIds = authUser?.centerIds || []
+    return delay(all.filter(u => u.clientId === auth.clientId && u.centerIds.some(c => centerIds.includes(c))))
+  }
+  return delay([])
+}
+
 export async function createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
   ensureSeeded()
   const newUser: User = { ...user, id: `user-${Date.now()}`, createdAt: new Date().toISOString() }

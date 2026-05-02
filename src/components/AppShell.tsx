@@ -49,6 +49,10 @@ function getAuthRole(): string | null {
   }
 }
 
+function canViewUsers(role: string | null): boolean {
+  return role === 'master' || role === 'clientAdmin' || role === 'hotelAdmin'
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -109,7 +113,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <SidebarContent isActive={isActive} isMaster={isMaster} />
+        <SidebarContent isActive={isActive} isMaster={isMaster} userRole={userRole} />
       </aside>
 
       {/* Desktop sidebar */}
@@ -120,7 +124,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-base font-semibold">HotelDocs</span>
           </Link>
         </div>
-        <SidebarContent isActive={isActive} isMaster={isMaster} />
+        <SidebarContent isActive={isActive} isMaster={isMaster} userRole={userRole} />
       </aside>
 
       {/* Main area */}
@@ -146,7 +150,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SidebarContent({ isActive, isMaster }: { isActive: (path: string) => boolean; isMaster: boolean }) {
+function SidebarContent({ isActive, isMaster, userRole }: { isActive: (path: string) => boolean; isMaster: boolean; userRole: string | null }) {
+  const visibleAdminItems = adminNavItems.filter((item) =>
+    item.label !== 'Usuarios' || canViewUsers(userRole)
+  )
+
   return (
     <nav className="flex-1 overflow-y-auto py-4">
       <div className="px-3 space-y-1">
@@ -162,7 +170,7 @@ function SidebarContent({ isActive, isMaster }: { isActive: (path: string) => bo
         </span>
       </div>
       <div className="px-3 space-y-1">
-        {adminNavItems.map((item) => (
+        {visibleAdminItems.map((item) => (
           <NavItem key={item.path} item={item} active={isActive(item.path)} />
         ))}
       </div>
