@@ -15,129 +15,199 @@ import {
   User,
 } from 'lucide-react'
 
+/** =============================================================================
+ *  DEMO USERS — Fallback cuando Supabase NO está configurado
+ *  =============================================================================
+ *  NOTA: Estos datos deben mantenerse sincronizados con seed.sql.
+ *  Si cambias un email, contraseña o UUID en seed.sql, actualiza aquí también.
+ */
 const DEMO_USERS = [
   {
     email: 'anxo.taboada@gmail.com',
     password: 'demo123',
-    id: 'user-master',
+    id: '40000000-0000-0000-0000-000000000001',
     name: 'Anxo Taboada',
-    role: 'master',
+    role: 'master' as const,
     clientId: null,
-    centerIds: [],
+    centerIds: [] as string[],
+    departmentId: null,
+  },
+  {
+    email: 'soporte@hoteldocs.com',
+    password: 'demo123',
+    id: '40000000-0000-0000-0000-000000000002',
+    name: 'Master Soporte',
+    role: 'master' as const,
+    clientId: null,
+    centerIds: [] as string[],
     departmentId: null,
   },
   {
     email: 'robinson.admin@hoteldocs.com',
     password: 'demo123',
-    id: 'user-robinson-admin',
+    id: '40000000-0000-0000-0000-000000000003',
     name: 'Robinson Admin',
-    role: 'clientAdmin',
-    clientId: 'client-1',
-    centerIds: ['center-rcjd', 'center-rcez', 'center-rcsn', 'center-rcvd', 'center-rcqr', 'center-rcbt'],
-    departmentId: 'dept-todos',
+    role: 'clientAdmin' as const,
+    clientId: '10000000-0000-0000-0000-000000000001',
+    centerIds: [
+      '30000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000002',
+      '30000000-0000-0000-0000-000000000003',
+      '30000000-0000-0000-0000-000000000004',
+      '30000000-0000-0000-0000-000000000005',
+      '30000000-0000-0000-0000-000000000006',
+    ],
+    departmentId: '20000000-0000-0000-0000-000000000006',
   },
   {
     email: 'tui.admin@hoteldocs.com',
     password: 'demo123',
-    id: 'user-tui-admin',
+    id: '40000000-0000-0000-0000-000000000019',
     name: 'TUI Admin',
-    role: 'clientAdmin',
-    clientId: 'client-2',
-    centerIds: ['center-tmlf', 'center-tmlcal'],
-    departmentId: 'dept-tui-todos',
+    role: 'clientAdmin' as const,
+    clientId: '10000000-0000-0000-0000-000000000002',
+    centerIds: [
+      '30000000-0000-0000-0000-000000000007',
+      '30000000-0000-0000-0000-000000000008',
+    ],
+    departmentId: '20000000-0000-0000-0000-000000000011',
   },
   {
     email: 'rcjd.admin@hoteldocs.com',
     password: 'demo123',
-    id: 'user-rcjd-admin',
+    id: '40000000-0000-0000-0000-000000000004',
     name: 'RCJD Admin',
-    role: 'hotelAdmin',
-    clientId: 'client-1',
-    centerIds: ['center-rcjd'],
-    departmentId: 'dept-todos',
+    role: 'hotelAdmin' as const,
+    clientId: '10000000-0000-0000-0000-000000000001',
+    centerIds: ['30000000-0000-0000-0000-000000000001'],
+    departmentId: '20000000-0000-0000-0000-000000000006',
   },
   {
-    email: 'maria.recepcion@robinson.com',
+    email: 'maria.recepcion@hoteldocs.com',
     password: 'demo123',
-    id: 'user-maria-recepcion',
+    id: '40000000-0000-0000-0000-000000000010',
     name: 'Maria Recepcionista',
-    role: 'user',
-    clientId: 'client-1',
-    centerIds: ['center-rcjd'],
-    departmentId: 'dept-recepcion',
+    role: 'user' as const,
+    clientId: '10000000-0000-0000-0000-000000000001',
+    centerIds: ['30000000-0000-0000-0000-000000000001'],
+    departmentId: '20000000-0000-0000-0000-000000000002',
   },
 ]
 
+/** =============================================================================
+ *  LoginPage — Flujo dual: Supabase (producción) | localStorage (demo offline)
+ *  =============================================================================
+ *  REGLAS DE ORO:
+ *  1. Si Supabase está configurado  →  SOLO usamos Supabase Auth.
+ *     Errores se muestran al usuario. NUNCA caemos silenciosamente al fallback.
+ *  2. Si Supabase NO está configurado  →  Usamos fallback localStorage.
+ *  3. Si Supabase auth OK pero public.users no tiene perfil  →  Error explícito.
+ */
 export default function LoginPage() {
   const navigate = useNavigate()
   const { t } = useTranslation('login')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  /** --------------------------------------------------------------------------
+   *  LOGIN CON SUPABASE (modo producción)
+   *  -------------------------------------------------------------------------- */
+  const loginWithSupabase = async (): Promise<boolean> => {
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-    // --- TRY SUPABASE AUTH FIRST ---
-    if (isSupabaseConfigured) {
-      try {
-        const { createClient } = await import('@supabase/supabase-js')
-        const url = import.meta.env.VITE_SUPABASE_URL
-        const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-        const supabase = createClient(url, key)
-
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password,
-        })
-
-        if (!authError && authData?.user) {
-          // Fetch user profile from public.users
-          const { data: profile } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single()
-
-          if (profile) {
-            const authPayload = {
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              role: profile.role,
-              clientId: profile.client_id,
-              centerIds: profile.center_ids || [],
-              departmentId: profile.department_id,
-            }
-            localStorage.setItem('hoteldocs_auth', JSON.stringify(authPayload))
-            setLoading(false)
-            navigate('/dashboard', { replace: true })
-            return
-          }
-        }
-      } catch {
-        // Supabase failed, continue to localStorage fallback
-      }
+    if (!url || !key) {
+      throw new Error('Supabase URL o Anon Key no están definidos en las variables de entorno.')
     }
 
-    // --- FALLBACK: LOCAL DEMO LOGIN ---
-    await new Promise((resolve) => setTimeout(resolve, 800))
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(url, key, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+      },
+    })
+
+    // 1) Autenticar contra auth.users
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password,
+    })
+
+    if (authError) {
+      // Credenciales incorrectas o usuario no existe
+      throw new Error(
+        authError.message === 'Invalid login credentials'
+          ? 'Credenciales incorrectas. Verifica tu email y contraseña.'
+          : `Error de autenticación: ${authError.message}`
+      )
+    }
+
+    if (!authData?.user) {
+      throw new Error('No se pudo obtener el usuario después de la autenticación.')
+    }
+
+    // 2) Leer perfil enriquecido desde public.users
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (profileError) {
+      console.error('[LoginPage] Error al leer public.users:', profileError)
+      throw new Error(
+        'No se pudo cargar tu perfil de usuario. Contacta al administrador.'
+      )
+    }
+
+    if (!profile) {
+      // Auth OK pero public.users no tiene la fila → sincronización rota
+      throw new Error(
+        'Tu cuenta de autenticación existe pero no tiene perfil asociado. ' +
+        'Ejecuta el SQL de sincronización (fix-login.sql) en Supabase.'
+      )
+    }
+
+    if (!profile.is_active) {
+      throw new Error('Tu cuenta está desactivada. Contacta al administrador.')
+    }
+
+    // 3) Guardar payload enriquecido en localStorage
+    const authPayload = {
+      id: profile.id,
+      email: profile.email,
+      name: profile.name,
+      role: profile.role,
+      clientId: profile.client_id,
+      centerIds: profile.center_ids || [],
+      departmentId: profile.department_id,
+    }
+    localStorage.setItem('hoteldocs_auth', JSON.stringify(authPayload))
+    return true
+  }
+
+  /** --------------------------------------------------------------------------
+   *  LOGIN LOCAL (modo demo offline — SOLO cuando Supabase no está configurado)
+   *  -------------------------------------------------------------------------- */
+  const loginLocal = async (): Promise<boolean> => {
+    // Pequeño delay para simular red (UX)
+    await new Promise((resolve) => setTimeout(resolve, 600))
 
     const user = DEMO_USERS.find(
       (u) => u.email === email.trim() && u.password === password
     )
 
     if (!user) {
-      setError('Credenciales incorrectas.')
-      setLoading(false)
-      return
+      throw new Error('Credenciales incorrectas.')
     }
 
-    const authData = {
+    const authPayload = {
       id: user.id,
       email: user.email,
       name: user.name,
@@ -147,9 +217,35 @@ export default function LoginPage() {
       departmentId: user.departmentId,
     }
 
-    localStorage.setItem('hoteldocs_auth', JSON.stringify(authData))
-    setLoading(false)
-    navigate('/dashboard', { replace: true })
+    localStorage.setItem('hoteldocs_auth', JSON.stringify(authPayload))
+    return true
+  }
+
+  /** --------------------------------------------------------------------------
+   *  SUBMIT HANDLER
+   *  -------------------------------------------------------------------------- */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      if (isSupabaseConfigured) {
+        // ── MODO SUPABASE ──
+        // Solo intentamos Supabase. Si falla, mostramos error y paramos.
+        await loginWithSupabase()
+        navigate('/dashboard', { replace: true })
+      } else {
+        // ── MODO OFFLINE DEMO ──
+        // Supabase no está configurado, usamos fallback localStorage.
+        await loginLocal()
+        navigate('/dashboard', { replace: true })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error inesperado al iniciar sesión.'
+      setError(message)
+      setLoading(false)
+    }
   }
 
   const setDemoCredentials = (user: (typeof DEMO_USERS)[0]) => {
@@ -289,8 +385,16 @@ export default function LoginPage() {
             ))}
           </div>
         </div>
+
+        {/* Indicador de modo */}
+        <div className="mt-4 text-center">
+          <p className="text-[11px] text-[#9CA3AF]">
+            {isSupabaseConfigured
+              ? 'Conectado a Supabase'
+              : 'Modo demo offline (sin Supabase)'}
+          </p>
+        </div>
       </motion.div>
     </div>
   )
 }
-// Deploy trigger: Sat May  2 16:41:16 CST 2026
