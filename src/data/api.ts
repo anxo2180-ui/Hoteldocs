@@ -52,6 +52,20 @@ function ensureSeeded(): void {
   seedIfEmpty(KEYS.alarms, mockAlarms)
 }
 
+
+// Helper robusto para leer auth del localStorage
+export function getAuthFromStorage(): { id: string; name: string; role: string; clientId?: string | null; centerIds?: string[]; departmentId?: string | null } | null {
+  try {
+    const raw = localStorage.getItem('hoteldocs_auth')
+    if (!raw || raw === 'null' || raw === 'undefined') return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || !parsed.id) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 function delay<T>(value: T): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), 200 + Math.random() * 300))
 }

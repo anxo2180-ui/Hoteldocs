@@ -39,14 +39,8 @@ const masterNavItems = [
 ]
 
 function getAuthRole(): string | null {
-  try {
-    const auth = localStorage.getItem('hoteldocs_auth')
-    if (!auth) return null
-    const parsed = JSON.parse(auth)
-    return parsed.role ?? null
-  } catch {
-    return null
-  }
+  const auth = getAuthFromStorage()
+  return auth?.role ?? null
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

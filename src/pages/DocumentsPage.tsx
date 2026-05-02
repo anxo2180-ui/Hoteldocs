@@ -29,9 +29,11 @@ interface AuthData {
 
 function getAuth(): AuthData | null {
   const raw = localStorage.getItem('hoteldocs_auth')
-  if (!raw) return null
+  if (!raw || raw === 'null' || raw === 'undefined') return null
   try {
-    return JSON.parse(raw) as AuthData
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || !parsed.id) return null
+    return parsed as AuthData
   } catch {
     return null
   }
