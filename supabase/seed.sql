@@ -163,14 +163,14 @@ ON CONFLICT (id) DO NOTHING;
 -- ============================================================
 -- 6. topics (6)
 -- ============================================================
-INSERT INTO topics (id, name, description, created_at, updated_at)
+INSERT INTO topics (id, name, description, order_index, created_at, updated_at)
 VALUES
-  ('50000000-0000-0000-0000-000000000001'::uuid, 'Limpieza', 'Protocolos y manuales de limpieza', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
-  ('50000000-0000-0000-0000-000000000002'::uuid, 'Recepcion', 'Procedimientos de recepcion y atencion al cliente', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
-  ('50000000-0000-0000-0000-000000000003'::uuid, 'Mantenimiento', 'Guias de mantenimiento de instalaciones', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
-  ('50000000-0000-0000-0000-000000000004'::uuid, 'Seguridad', 'Protocolos de seguridad y emergencias', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
-  ('50000000-0000-0000-0000-000000000005'::uuid, 'RRHH', 'Politicas de recursos humanos', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
-  ('50000000-0000-0000-0000-000000000006'::uuid, 'Calidad', 'Estandares de calidad y certificaciones', '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
+  ('50000000-0000-0000-0000-000000000001'::uuid, 'Limpieza', 'Protocolos y manuales de limpieza', 1, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
+  ('50000000-0000-0000-0000-000000000002'::uuid, 'Recepcion', 'Procedimientos de recepcion y atencion al cliente', 2, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
+  ('50000000-0000-0000-0000-000000000003'::uuid, 'Mantenimiento', 'Guias de mantenimiento de instalaciones', 3, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
+  ('50000000-0000-0000-0000-000000000004'::uuid, 'Seguridad', 'Protocolos de seguridad y emergencias', 4, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
+  ('50000000-0000-0000-0000-000000000005'::uuid, 'RRHH', 'Politicas de recursos humanos', 5, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z'),
+  ('50000000-0000-0000-0000-000000000006'::uuid, 'Calidad', 'Estandares de calidad y certificaciones', 6, '2024-01-15T10:00:00Z', '2024-01-15T10:00:00Z')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================

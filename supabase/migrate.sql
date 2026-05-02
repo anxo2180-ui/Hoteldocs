@@ -1,16 +1,11 @@
 -- HotelDocs — Migración Supabase (Schema vacío → Multi-tenant)
 -- ================================================================
--- Tu proyecto Supabase tiene el schema antiguo (sin clients, departments,
--- sin campos JSONB). Todas las tablas están VACÍAS, así que es seguro reconstruir.
--- 
--- INSTRUCCIONES:
--- 1. Ve a tu dashboard de Supabase: https://supabase.com/dashboard/project/hculvpzrtqcapzxyiqpf
--- 2. Entra a SQL Editor (en el menú lateral)
--- 3. Crea una "New query"
--- 4. Pega TODO este script
--- 5. Click "Run"
--- 6. Espera a que termine (puede tardar 10-20 segundos)
--- 7. Si ves "Success, no rows returned" → todo perfecto
+-- Script CORREGIDO e IDEMPOTENTE
+-- Cambios respecto a la versión original:
+--   1. Todos los CREATE INDEX usan IF NOT EXISTS
+--   2. Todos los CREATE TRIGGER van precedidos de DROP TRIGGER IF EXISTS
+--   3. Transacción explícita BEGIN / COMMIT (opcional, Supabase SQL Editor
+--      ya ejecuta en una transacción implícita, pero queda documentado)
 -- ================================================================
 
 -- ============================================================
@@ -31,6 +26,10 @@ DROP TABLE IF EXISTS public.clients CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 DROP TYPE IF EXISTS center_status CASCADE;
 DROP TYPE IF EXISTS document_status CASCADE;
+DROP TYPE IF EXISTS document_visibility CASCADE;
+DROP TYPE IF EXISTS document_source_type CASCADE;
+DROP TYPE IF EXISTS license_type CASCADE;
+DROP TYPE IF EXISTS client_status CASCADE;
 
 -- ============================================================
 -- 1. EXTENSIONES
@@ -73,19 +72,22 @@ CREATE OR REPLACE FUNCTION public.get_current_user_role()
 RETURNS user_role AS $$
 DECLARE v_role user_role;
 BEGIN SELECT role INTO v_role FROM public.users WHERE id = auth.uid();
-RETURN v_role; END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+RETURN v_role; END; $$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.get_current_user_client_id()
 RETURNS UUID AS $$
 DECLARE v_client_id UUID;
 BEGIN SELECT client_id INTO v_client_id FROM public.users WHERE id = auth.uid();
-RETURN v_client_id; END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+RETURN v_client_id; END; $$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.get_current_user_center_ids()
 RETURNS JSONB AS $$
 DECLARE v_centers JSONB;
 BEGIN SELECT center_ids INTO v_centers FROM public.users WHERE id = auth.uid();
-RETURN COALESCE(v_centers, '[]'::jsonb); END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+RETURN COALESCE(v_centers, '[]'::jsonb); END; $$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.user_has_center_access(doc_center_ids JSONB)
 RETURNS BOOLEAN AS $$
@@ -93,7 +95,8 @@ DECLARE user_centers JSONB;
 BEGIN
   SELECT center_ids INTO user_centers FROM public.users WHERE id = auth.uid();
   RETURN COALESCE(doc_center_ids, '[]'::jsonb) && COALESCE(user_centers, '[]'::jsonb);
-END; $$ LANGUAGE plpgsql SECURITY DEFINER;
+END; $$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public;
 
 CREATE OR REPLACE FUNCTION public.save_document_version()
 RETURNS TRIGGER AS $$
@@ -233,41 +236,54 @@ CREATE TABLE IF NOT EXISTS public.alarms (
 -- ============================================================
 -- 5. ÍNDICES
 -- ============================================================
-CREATE INDEX idx_clients_status ON public.clients(status);
-CREATE INDEX idx_departments_client_id ON public.departments(client_id);
-CREATE INDEX idx_centers_status ON public.centers(status);
-CREATE INDEX idx_centers_client_id ON public.centers(client_id);
-CREATE INDEX idx_users_client_id ON public.users(client_id);
-CREATE INDEX idx_users_role ON public.users(role);
-CREATE INDEX idx_users_department ON public.users(department_id);
-CREATE INDEX idx_users_center_ids ON public.users USING GIN(center_ids);
-CREATE INDEX idx_documents_topic_id ON public.documents(topic_id);
-CREATE INDEX idx_documents_status ON public.documents(status);
-CREATE INDEX idx_documents_client_id ON public.documents(client_id);
-CREATE INDEX idx_documents_department_id ON public.documents(department_id);
-CREATE INDEX idx_documents_center_ids ON public.documents USING GIN(center_ids);
-CREATE INDEX idx_documents_created_by ON public.documents(created_by);
-CREATE INDEX idx_attachments_doc_id ON public.document_attachments(document_id);
-CREATE INDEX idx_versions_doc_id ON public.document_versions(document_id);
-CREATE INDEX idx_audit_user_id ON public.audit_logs(user_id);
-CREATE INDEX idx_alarms_document_id ON public.alarms(document_id);
-CREATE INDEX idx_alarms_reminder ON public.alarms(reminder_date);
+CREATE INDEX IF NOT EXISTS idx_clients_status ON public.clients(status);
+CREATE INDEX IF NOT EXISTS idx_departments_client_id ON public.departments(client_id);
+CREATE INDEX IF NOT EXISTS idx_centers_status ON public.centers(status);
+CREATE INDEX IF NOT EXISTS idx_centers_client_id ON public.centers(client_id);
+CREATE INDEX IF NOT EXISTS idx_users_client_id ON public.users(client_id);
+CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
+CREATE INDEX IF NOT EXISTS idx_users_department ON public.users(department_id);
+CREATE INDEX IF NOT EXISTS idx_users_center_ids ON public.users USING GIN(center_ids);
+CREATE INDEX IF NOT EXISTS idx_documents_topic_id ON public.documents(topic_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON public.documents(status);
+CREATE INDEX IF NOT EXISTS idx_documents_client_id ON public.documents(client_id);
+CREATE INDEX IF NOT EXISTS idx_documents_department_id ON public.documents(department_id);
+CREATE INDEX IF NOT EXISTS idx_documents_center_ids ON public.documents USING GIN(center_ids);
+CREATE INDEX IF NOT EXISTS idx_documents_created_by ON public.documents(created_by);
+CREATE INDEX IF NOT EXISTS idx_attachments_doc_id ON public.document_attachments(document_id);
+CREATE INDEX IF NOT EXISTS idx_versions_doc_id ON public.document_versions(document_id);
+CREATE INDEX IF NOT EXISTS idx_audit_user_id ON public.audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_alarms_document_id ON public.alarms(document_id);
+CREATE INDEX IF NOT EXISTS idx_alarms_reminder ON public.alarms(reminder_date);
 
 -- ============================================================
--- 6. TRIGGERS
+-- 6. TRIGGERS (idempotentes: DROP IF EXISTS + CREATE)
 -- ============================================================
+DROP TRIGGER IF EXISTS trg_clients_updated_at ON public.clients;
 CREATE TRIGGER trg_clients_updated_at BEFORE UPDATE ON public.clients
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_centers_updated_at ON public.centers;
 CREATE TRIGGER trg_centers_updated_at BEFORE UPDATE ON public.centers
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_users_updated_at ON public.users;
 CREATE TRIGGER trg_users_updated_at BEFORE UPDATE ON public.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_topics_updated_at ON public.topics;
 CREATE TRIGGER trg_topics_updated_at BEFORE UPDATE ON public.topics
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_documents_updated_at ON public.documents;
 CREATE TRIGGER trg_documents_updated_at BEFORE UPDATE ON public.documents
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_alarms_updated_at ON public.alarms;
 CREATE TRIGGER trg_alarms_updated_at BEFORE UPDATE ON public.alarms
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+DROP TRIGGER IF EXISTS trg_documents_save_version ON public.documents;
 CREATE TRIGGER trg_documents_save_version BEFORE UPDATE ON public.documents
 FOR EACH ROW EXECUTE FUNCTION public.save_document_version();
 
@@ -298,6 +314,19 @@ DO $$ BEGIN
   CREATE POLICY "clients_all_master" ON public.clients FOR ALL TO authenticated
     USING (public.get_current_user_role() = 'master');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "clients_insert" ON public.clients FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "clients_update" ON public.clients FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master')
+    WITH CHECK (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "clients_delete" ON public.clients FOR DELETE TO authenticated
+    USING (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- DEPARTMENTS
 DO $$ BEGIN
@@ -312,6 +341,23 @@ DO $$ BEGIN
   CREATE POLICY "dept_client_admin" ON public.departments FOR ALL TO authenticated
     USING (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id());
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "dept_insert" ON public.departments FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master'
+                OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "dept_update" ON public.departments FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()))
+    WITH CHECK (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "dept_delete" ON public.departments FOR DELETE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- CENTERS
 DO $$ BEGIN
@@ -322,6 +368,23 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE POLICY "centers_all_master" ON public.centers FOR ALL TO authenticated
     USING (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "centers_insert" ON public.centers FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master'
+                OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "centers_update" ON public.centers FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()))
+    WITH CHECK (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "centers_delete" ON public.centers FOR DELETE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- USERS
@@ -334,6 +397,26 @@ DO $$ BEGIN
   CREATE POLICY "users_all_master" ON public.users FOR ALL TO authenticated
     USING (public.get_current_user_role() = 'master');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "users_insert" ON public.users FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master'
+                OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id() AND role IN ('hotelAdmin', 'user'))
+                OR (public.get_current_user_role() = 'hotelAdmin' AND client_id = public.get_current_user_client_id() AND role = 'user'));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "users_update" ON public.users FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id())
+           OR (public.get_current_user_role() = 'hotelAdmin' AND client_id = public.get_current_user_client_id()))
+    WITH CHECK (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id())
+           OR (public.get_current_user_role() = 'hotelAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "users_delete" ON public.users FOR DELETE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- TOPICS
 DO $$ BEGIN
@@ -341,6 +424,19 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   CREATE POLICY "topics_all_master" ON public.topics FOR ALL TO authenticated
+    USING (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "topics_insert" ON public.topics FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "topics_update" ON public.topics FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master')
+    WITH CHECK (public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "topics_delete" ON public.topics FOR DELETE TO authenticated
     USING (public.get_current_user_role() = 'master');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
@@ -357,6 +453,26 @@ DO $$ BEGIN
   CREATE POLICY "docs_all_master" ON public.documents FOR ALL TO authenticated
     USING (public.get_current_user_role() = 'master');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "docs_insert" ON public.documents FOR INSERT TO authenticated
+    WITH CHECK (public.get_current_user_role() = 'master' 
+                OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id())
+                OR (public.get_current_user_role() = 'hotelAdmin' AND public.user_has_center_access(center_ids)));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "docs_update" ON public.documents FOR UPDATE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id())
+           OR (public.get_current_user_role() = 'hotelAdmin' AND public.user_has_center_access(center_ids)))
+    WITH CHECK (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id())
+           OR (public.get_current_user_role() = 'hotelAdmin' AND public.user_has_center_access(center_ids)));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "docs_delete" ON public.documents FOR DELETE TO authenticated
+    USING (public.get_current_user_role() = 'master'
+           OR (public.get_current_user_role() = 'clientAdmin' AND client_id = public.get_current_user_client_id()));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ATTACHMENTS / VERSIONS / ALARMS (inherit from document)
 DO $$ BEGIN
@@ -370,9 +486,37 @@ DO $$ BEGIN
            OR public.get_current_user_role() = 'master');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
+  CREATE POLICY "ver_insert" ON public.document_versions FOR INSERT TO authenticated
+    WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE POLICY "alarm_select" ON public.alarms FOR SELECT TO authenticated
     USING (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND d.created_by = auth.uid())
            OR public.get_current_user_role() = 'master');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "att_insert" ON public.document_attachments FOR INSERT TO authenticated
+    WITH CHECK (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "att_update" ON public.document_attachments FOR UPDATE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "att_delete" ON public.document_attachments FOR DELETE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "alarm_insert" ON public.alarms FOR INSERT TO authenticated
+    WITH CHECK (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "alarm_update" ON public.alarms FOR UPDATE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE POLICY "alarm_delete" ON public.alarms FOR DELETE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.documents d WHERE d.id = document_id AND (d.created_by = auth.uid() OR public.get_current_user_role() = 'master' OR d.client_id = public.get_current_user_client_id())));
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- AUDIT LOGS (immutable)
@@ -380,7 +524,8 @@ DO $$ BEGIN
   CREATE POLICY "audit_select" ON public.audit_logs FOR SELECT TO authenticated USING (true);
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
-  CREATE POLICY "audit_insert" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (true);
+  CREATE POLICY "audit_insert" ON public.audit_logs FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- ============================================================
