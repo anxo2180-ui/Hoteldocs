@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from '@/i18n'
 import {
   FileText,
   LayoutDashboard,
@@ -15,28 +16,6 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-
-const mainNavItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Documentos', path: '/documents', icon: FileEdit },
-  { label: 'Alarmas', path: '/admin/alarms', icon: Bell },
-]
-
-const adminNavItems = [
-  { label: 'Centros', path: '/admin/centers', icon: Building2 },
-  { label: 'Departamentos', path: '/admin/departments', icon: Layers },
-  { label: 'Usuarios', path: '/admin/users', icon: Users },
-  { label: 'Temas', path: '/admin/topics', icon: FolderOpen },
-]
-
-const systemNavItems = [
-  { label: 'Log de Auditoría', path: '/admin/log', icon: History },
-]
-
-const masterNavItems = [
-  { label: 'Clientes', path: '/master/clients', icon: Crown },
-  { label: 'Licencias', path: '/master/licenses', icon: Settings },
-]
 
 function getAuthRole(): string | null {
   try {
@@ -58,6 +37,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const userRole = getAuthRole()
   const isMaster = userRole === 'master'
+  const { t, lang, setLang } = useTranslation('navigation')
+  const { t: tCommon } = useTranslation('common')
+
+  const mainNavItems = [
+    { label: t('dashboard'), path: '/dashboard', icon: LayoutDashboard },
+    { label: t('documents'), path: '/documents', icon: FileEdit },
+    { label: t('alarms'), path: '/admin/alarms', icon: Bell },
+  ]
+
+  const adminNavItems = [
+    { label: t('centers'), path: '/admin/centers', icon: Building2 },
+    { label: t('departments'), path: '/admin/departments', icon: Layers },
+    { label: t('users'), path: '/admin/users', icon: Users },
+    { label: t('topics'), path: '/admin/topics', icon: FolderOpen },
+  ]
+
+  const systemNavItems = [
+    { label: t('auditLog'), path: '/admin/log', icon: History },
+  ]
+
+  const masterNavItems = [
+    { label: t('clients'), path: '/master/clients', icon: Crown },
+    { label: t('licenses'), path: '/master/licenses', icon: Settings },
+  ]
 
   const isActive = (path: string) => {
     if (path === '/documents' && location.pathname.startsWith('/documents')) return true
@@ -66,23 +69,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return location.pathname === path
   }
 
-  const pageTitle = () => {
-    const p = location.pathname
-    if (p === '/dashboard') return 'Dashboard'
-    if (p === '/documents') return 'Documentos'
-    if (p.startsWith('/documents/')) return 'Documento'
-    if (p === '/admin/centers') return 'Centros'
-    if (p === '/admin/users') return 'Usuarios'
-    if (p === '/admin/topics') return 'Temas'
-    if (p === '/admin/documents') return 'Documentos (Admin)'
-    if (p.startsWith('/admin/documents/')) return 'Editor de Documento'
-    if (p === '/admin/log') return 'Log de Auditoría'
-    if (p === '/admin/alarms') return 'Alarmas'
-    if (p === '/master/clients') return 'Clientes'
-    if (p.startsWith('/master/clients/')) return 'Detalle de Cliente'
-    if (p === '/master/licenses') return 'Licencias'
-    return ''
-  }
+  const visibleAdminItems = adminNavItems.filter((item) =>
+    item.label !== t('users') || canViewUsers(userRole)
+  )
 
   return (
     <div className="min-h-[100dvh] flex bg-white">
@@ -108,12 +97,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setMobileOpen(false)}
             className="p-1.5 rounded-md hover:bg-[#F3F4F6] text-[#6B7280]"
-            aria-label="Cerrar menú"
+            aria-label={tCommon('close')}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <SidebarContent isActive={isActive} isMaster={isMaster} userRole={userRole} />
+        <SidebarContent
+          isActive={isActive}
+          isMaster={isMaster}
+          userRole={userRole}
+          mainNavItems={mainNavItems}
+          visibleAdminItems={visibleAdminItems}
+          systemNavItems={systemNavItems}
+          masterNavItems={masterNavItems}
+          t={t}
+          tCommon={tCommon}
+          lang={lang}
+          setLang={setLang}
+        />
       </aside>
 
       {/* Desktop sidebar */}
@@ -124,7 +125,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-base font-semibold">HotelDocs</span>
           </Link>
         </div>
-        <SidebarContent isActive={isActive} isMaster={isMaster} userRole={userRole} />
+        <SidebarContent
+          isActive={isActive}
+          isMaster={isMaster}
+          userRole={userRole}
+          mainNavItems={mainNavItems}
+          visibleAdminItems={visibleAdminItems}
+          systemNavItems={systemNavItems}
+          masterNavItems={masterNavItems}
+          t={t}
+          tCommon={tCommon}
+          lang={lang}
+          setLang={setLang}
+        />
       </aside>
 
       {/* Main area */}
@@ -134,11 +147,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setMobileOpen(true)}
             className="lg:hidden p-1.5 rounded-md hover:bg-[#F3F4F6] text-[#6B7280]"
-            aria-label="Abrir menú"
+            aria-label={tCommon('open')}
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-sm text-[#6B7280]">{pageTitle()}</span>
+          <span className="text-sm text-[#6B7280] flex-1">
+            {location.pathname === '/dashboard' && t('dashboard')}
+            {location.pathname === '/documents' && t('documents')}
+            {location.pathname.startsWith('/documents/') && t('documents')}
+            {location.pathname === '/admin/centers' && t('centers')}
+            {location.pathname === '/admin/users' && t('users')}
+            {location.pathname === '/admin/topics' && t('topics')}
+            {location.pathname === '/admin/documents' && t('documents')}
+            {location.pathname.startsWith('/admin/documents/') && t('documents')}
+            {location.pathname === '/admin/log' && t('auditLog')}
+            {location.pathname === '/admin/alarms' && t('alarms')}
+            {location.pathname === '/master/clients' && t('clients')}
+            {location.pathname.startsWith('/master/clients/') && t('clients')}
+            {location.pathname === '/master/licenses' && t('licenses')}
+          </span>
+          {/* Language selector */}
+          <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-md p-0.5">
+            {(['es', 'en', 'de'] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  lang === l
+                    ? 'bg-white text-[#111827] shadow-sm'
+                    : 'text-[#6B7280] hover:text-[#374151]'
+                }`}
+              >
+                {l.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </header>
 
         {/* Page content */}
@@ -150,11 +193,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SidebarContent({ isActive, isMaster, userRole }: { isActive: (path: string) => boolean; isMaster: boolean; userRole: string | null }) {
-  const visibleAdminItems = adminNavItems.filter((item) =>
-    item.label !== 'Usuarios' || canViewUsers(userRole)
-  )
-
+function SidebarContent({
+  isActive,
+  isMaster,
+  mainNavItems,
+  visibleAdminItems,
+  systemNavItems,
+  masterNavItems,
+  t,
+}: {
+  isActive: (path: string) => boolean
+  isMaster: boolean
+  userRole: string | null
+  mainNavItems: any[]
+  visibleAdminItems: any[]
+  systemNavItems: any[]
+  masterNavItems: any[]
+  t: (key: string) => string
+  tCommon: (key: string) => string
+  lang: string
+  setLang: (lang: 'es' | 'en' | 'de') => void
+}) {
   return (
     <nav className="flex-1 overflow-y-auto py-4">
       <div className="px-3 space-y-1">
@@ -166,7 +225,7 @@ function SidebarContent({ isActive, isMaster, userRole }: { isActive: (path: str
       <div className="my-3 mx-4 border-t border-[#E5E7EB]" />
       <div className="px-3 pb-1">
         <span className="px-3 text-[11px] font-semibold uppercase text-[#9CA3AF] tracking-wide">
-          Gestión
+          {t('management')}
         </span>
       </div>
       <div className="px-3 space-y-1">
@@ -180,7 +239,7 @@ function SidebarContent({ isActive, isMaster, userRole }: { isActive: (path: str
           <div className="my-3 mx-4 border-t border-[#E5E7EB]" />
           <div className="px-3 pb-1">
             <span className="px-3 text-[11px] font-semibold uppercase text-[#9CA3AF] tracking-wide">
-              Master
+              {t('master')}
             </span>
           </div>
           <div className="px-3 space-y-1">
@@ -194,7 +253,7 @@ function SidebarContent({ isActive, isMaster, userRole }: { isActive: (path: str
       <div className="my-3 mx-4 border-t border-[#E5E7EB]" />
       <div className="px-3 pb-1">
         <span className="px-3 text-[11px] font-semibold uppercase text-[#9CA3AF] tracking-wide">
-          Sistema
+          {t('system')}
         </span>
       </div>
       <div className="px-3 space-y-1">

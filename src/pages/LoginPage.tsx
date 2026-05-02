@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useTranslation } from '@/i18n'
 import {
   FileText,
   Mail,
@@ -68,6 +69,7 @@ const DEMO_USERS = [
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -111,6 +113,15 @@ export default function LoginPage() {
     setPassword(user.password)
   }
 
+  const roleLabel = (role: string) => {
+    switch (role) {
+      case 'master': return t('masterAdmin')
+      case 'clientAdmin': return t('groupAdmin')
+      case 'hotelAdmin': return t('hotelAdmin')
+      default: return t('user')
+    }
+  }
+
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-[#F9FAFB] px-4">
       <motion.div
@@ -125,9 +136,7 @@ export default function LoginPage() {
             <FileText className="w-6 h-6 text-[#2563EB]" />
             <span className="text-xl font-semibold">HotelDocs</span>
           </div>
-          <p className="mt-2 text-sm text-[#6B7280]">
-            Inicia sesión en tu cuenta
-          </p>
+          <p className="mt-2 text-sm text-[#6B7280]">{t('title')}</p>
         </div>
 
         {/* Form */}
@@ -138,7 +147,7 @@ export default function LoginPage() {
             transition={{ delay: 0.05, duration: 0.25 }}
           >
             <label className="block text-[13px] font-medium text-[#374151] mb-1">
-              Correo electrónico
+              {t('emailLabel')}
             </label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -146,7 +155,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@hotel.com"
+                placeholder={t('emailPlaceholder')}
                 required
                 className="w-full pl-10 pr-3 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
               />
@@ -159,7 +168,7 @@ export default function LoginPage() {
             transition={{ delay: 0.1, duration: 0.25 }}
           >
             <label className="block text-[13px] font-medium text-[#374151] mb-1">
-              Contraseña
+              {t('passwordLabel')}
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -167,7 +176,7 @@ export default function LoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Tu contraseña"
+                placeholder={t('passwordPlaceholder')}
                 required
                 className="w-full pl-10 pr-10 py-2 text-sm border border-[#E5E7EB] rounded-md focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 transition-all"
               />
@@ -202,7 +211,7 @@ export default function LoginPage() {
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Iniciar Sesion'
+              t('submitButton')
             )}
           </motion.button>
         </form>
@@ -210,7 +219,7 @@ export default function LoginPage() {
         {/* Demo users */}
         <div className="mt-6 pt-5 border-t border-[#E5E7EB]">
           <p className="text-[11px] font-medium uppercase text-[#9CA3AF] tracking-wide mb-3">
-            Credenciales de demo
+            {t('demoCredentials')}
           </p>
           <div className="grid grid-cols-1 gap-2">
             {DEMO_USERS.map((user) => (
@@ -230,15 +239,7 @@ export default function LoginPage() {
                 )}
                 <div className="min-w-0">
                   <p className="text-[12px] font-medium text-[#111827] truncate">{user.name}</p>
-                  <p className="text-[11px] text-[#6B7280] truncate">
-                    {user.role === 'master'
-                      ? 'Master Admin'
-                      : user.role === 'clientAdmin'
-                        ? 'Admin de Grupo'
-                        : user.role === 'hotelAdmin'
-                          ? 'Admin de Hotel'
-                          : 'Usuario'}
-                  </p>
+                  <p className="text-[11px] text-[#6B7280] truncate">{roleLabel(user.role)}</p>
                 </div>
               </button>
             ))}

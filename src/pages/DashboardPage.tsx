@@ -11,7 +11,10 @@ import {
   Building2,
   History,
   Loader2,
+  HardDrive,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n'
+import { getLocalStorageSize } from '@/utils/storage'
 import { getDocuments, getAlarms, getAuditLog, getTopics } from '@/data/api'
 import type { Document, Alarm, AuditLogEntry, Topic } from '@/types'
 import StatusBadge from '@/components/StatusBadge'
@@ -87,6 +90,8 @@ export default function DashboardPage() {
   const [log, setLog] = useState<AuditLogEntry[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [loading, setLoading] = useState(true)
+  const [storage, setStorage] = useState({ usedKB: 0, usedMB: 0, totalKB: 5120, percent: 0 })
+  const { t } = useTranslation('dashboard')
 
   useEffect(() => {
     if (!auth) {
@@ -116,6 +121,12 @@ export default function DashboardPage() {
       }
     }
     load()
+  }, [])
+
+  useEffect(() => {
+    setStorage(getLocalStorageSize())
+    const interval = setInterval(() => setStorage(getLocalStorageSize()), 5000)
+    return () => clearInterval(interval)
   }, [])
 
   const totalDocs = docs.length
@@ -164,8 +175,8 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
       >
-        <h1 className="text-2xl font-semibold text-[#111827]">Dashboard</h1>
-        <p className="mt-1 text-sm text-[#6B7280]">Resumen de tu organización</p>
+        <h1 className="text-2xl font-semibold text-[#111827]">{t('title')}</h1>
+        <p className="mt-1 text-sm text-[#6B7280]">{t('subtitle')}</p>
       </motion.div>
 
       {/* KPI Cards */}
@@ -241,6 +252,37 @@ export default function DashboardPage() {
           )
         })}
       </div>
+
+      {/* Storage usage card */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.35 }}
+        className="mt-4 bg-white border border-[#E5E7EB] rounded-lg p-5"
+      >
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center">
+            <HardDrive className="w-5 h-5 text-[#2563EB]" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[#111827]">{t('spaceUsage')}</h3>
+            <p className="text-xs text-[#6B7280]">{t('spaceUsed')}: {storage.usedKB} KB / {storage.totalKB} KB</p>
+          </div>
+          <span className="ml-auto text-sm font-semibold text-[#111827]">{storage.percent}%</span>
+        </div>
+        <div className="w-full h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              storage.percent < 50
+                ? 'bg-[#10B981]'
+                : storage.percent < 80
+                ? 'bg-[#F59E0B]'
+                : 'bg-[#EF4444]'
+            }`}
+            style={{ width: `${storage.percent}%` }}
+          />
+        </div>
+      </motion.div>
 
       {/* Charts & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
