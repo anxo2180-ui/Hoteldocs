@@ -109,6 +109,16 @@ export async function updateClient(id: string, updates: Partial<Client>): Promis
   return delay(list[idx])
 }
 
+export async function deleteClient(id: string): Promise<void> {
+  ensureSeeded()
+  const list = getItem<Client>(KEYS.clients)
+  const idx = list.findIndex((c) => c.id === id)
+  if (idx === -1) throw new Error('Client not found')
+  list.splice(idx, 1)
+  setItem(KEYS.clients, list)
+  return delay(undefined)
+}
+
 // --- DEPARTMENTS ---
 export async function getDepartments(): Promise<Department[]> {
   ensureSeeded()
