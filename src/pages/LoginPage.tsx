@@ -15,10 +15,10 @@ import {
 
 const DEMO_USERS = [
   {
-    email: 'master@hoteldocs.com',
-    password: 'master123',
+    email: 'anxo.taboada@gmail.com',
+    password: 'Z12041984z_',
     id: 'user-master',
-    name: 'System Master',
+    name: 'Anxo Taboada',
     role: 'master',
     clientId: null,
     centerIds: [],

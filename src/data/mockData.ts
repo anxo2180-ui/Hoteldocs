@@ -123,8 +123,8 @@ export const mockCenters: Center[] = [
 export const mockUsers: User[] = [
   {
     id: 'user-master',
-    email: 'master@hoteldocs.com',
-    name: 'System Master',
+    email: 'anxo.taboada@gmail.com',
+    name: 'Anxo Taboada',
     role: 'master',
     clientId: null,
     centerIds: [],
@@ -389,7 +389,7 @@ export const mockAuditLog: AuditLogEntry[] = [
     createdAt: '2024-06-01T08:00:00Z',
   },
   {
-    id: 'log-2', userId: 'user-master', userName: 'System Master',
+    id: 'log-2', userId: 'user-master', userName: 'Anxo Taboada',
     action: 'CREATED', entityType: 'client', entityId: 'client-2',
     details: 'Creo el cliente "Grupo TUI Magic Life" con licencia Professional',
     createdAt: '2024-03-20T09:00:00Z',
