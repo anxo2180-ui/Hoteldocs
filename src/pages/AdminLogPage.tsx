@@ -145,8 +145,8 @@ export default function AdminLogPage() {
 
   useEffect(() => {
     const auth = getAuthUser()
-    if (!auth || auth.role !== 'admin') {
-      navigate('/dashboard')
+    if (!auth) {
+      navigate('/login', { replace: true })
       return
     }
     loadLogs()

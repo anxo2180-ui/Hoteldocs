@@ -32,6 +32,7 @@ import {
   getUserById as sbGetUserById,
   createUser as sbCreateUser,
   updateUser as sbUpdateUser,
+  deleteUser as sbDeleteUser,
   getTopics as sbGetTopics,
   createTopic as sbCreateTopic,
   updateTopic as sbUpdateTopic,
@@ -56,6 +57,7 @@ import {
 
 // Import localStorage fallback helpers for non-Supabase features
 import { extractTextFromPDF as localExtractTextFromPDF } from '@/services/pdfExtractor'
+import { getAuthFromStorage as localGetAuthFromStorage, getAuthUser as localGetAuthUser } from './api-local'
 
 // Re-export isSupabaseConfigured
 export { isSupabaseConfigured } from './supabase-client'
@@ -64,30 +66,12 @@ export { isSupabaseConfigured } from './supabase-client'
 // AUTH (mapped from Supabase)
 // ============================================================================
 
-export async function getAuthFromStorage(): Promise<{ id: string; name: string; role: string; clientId?: string | null; centerIds?: string[]; departmentId?: string | null } | null> {
-  const user = await sbGetCurrentUser()
-  if (!user) return null
-  return {
-    id: user.id,
-    name: user.name,
-    role: user.role,
-    clientId: user.clientId,
-    centerIds: user.centerIds,
-    departmentId: user.departmentId,
-  }
+export function getAuthFromStorage(): { id: string; name: string; role: string; clientId?: string | null; centerIds?: string[]; departmentId?: string | null } | null {
+  return localGetAuthFromStorage()
 }
 
-export async function getAuthUser(): Promise<{ id: string; name: string; role: UserRole; clientId: string | null; centerIds: string[]; departmentId: string | null } | null> {
-  const user = await sbGetCurrentUser()
-  if (!user) return null
-  return {
-    id: user.id,
-    name: user.name,
-    role: user.role,
-    clientId: user.clientId,
-    centerIds: user.centerIds,
-    departmentId: user.departmentId,
-  }
+export function getAuthUser(): { id: string; name: string; role: UserRole; clientId: string | null; centerIds: string[]; departmentId: string | null } | null {
+  return localGetAuthUser()
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -206,6 +190,10 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   return sbUpdateUser(id, updates as any)
 }
 
+export async function deleteUser(id: string): Promise<void> {
+  return sbDeleteUser(id)
+}
+
 // ============================================================================
 // TOPICS (pass-through)
 // ============================================================================
@@ -241,7 +229,7 @@ export async function getDocumentById(id: string): Promise<Document | null> {
 export async function getPublicDocumentById(id: string): Promise<Document | null> {
   const doc = await sbGetDocumentById(id)
   if (!doc) return null
-  if (doc.visibility === 'public') return doc
+  if (doc.visibility === 'public' && doc.status === 'approved') return doc
   return null
 }
 
@@ -266,16 +254,34 @@ export async function deleteDocument(id: string): Promise<void> {
 export async function getDocumentsForUser(user: User | null): Promise<Document[]> {
   if (!user) return []
   const all = await sbGetDocuments()
+
+  // Master sees everything
   if (user.role === 'master') return all
-  const userCenterIds = new Set(user.centerIds || [])
-  return all.filter(d => {
-    if (d.visibility === 'public') return true
-    if (d.createdBy === user.id) return true
-    if (d.status === 'approved' && d.isVisible) {
-      return d.centerIds.some(cid => userCenterIds.has(cid))
-    }
-    return false
-  })
+
+  // ClientAdmin sees docs of their client (or global docs)
+  if (user.role === 'clientAdmin') {
+    return all.filter(d => d.clientId === user.clientId || d.clientId === null)
+  }
+
+  // HotelAdmin: docs for their hotels
+  if (user.role === 'hotelAdmin') {
+    return all.filter(d => user.centerIds.some((cid) => d.centerIds.includes(cid)))
+  }
+
+  // Regular user: docs for their hotels + matching department + approved + visible
+  if (user.role === 'user') {
+    return all.filter((d) => {
+      if (d.visibility === 'public' && d.status === 'approved') return true
+      if (d.status !== 'approved' || !d.isVisible) return false
+      const hasCenter = user.centerIds.some((cid) => d.centerIds.includes(cid))
+      if (!hasCenter) return false
+      // departmentId null = all departments
+      if (d.departmentId === null) return true
+      return d.departmentId === user.departmentId
+    })
+  }
+
+  return []
 }
 
 // ============================================================================

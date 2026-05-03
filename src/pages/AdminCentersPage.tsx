@@ -92,7 +92,7 @@ export default function AdminCentersPage() {
 
   useEffect(() => {
     const auth = getAuthUser()
-    if (!auth || auth.role !== 'admin') {
+    if (!auth || !['master', 'clientAdmin', 'hotelAdmin'].includes(auth.role)) {
       navigate('/dashboard')
       return
     }

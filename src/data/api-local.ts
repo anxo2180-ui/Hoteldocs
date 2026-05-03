@@ -258,6 +258,13 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
   return delay(list[idx])
 }
 
+export async function deleteUser(id: string): Promise<void> {
+  ensureSeeded()
+  const list = getItem<User>(KEYS.users).filter((u) => u.id !== id)
+  setItem(KEYS.users, list)
+  return delay(undefined)
+}
+
 // --- TOPICS ---
 export async function getTopics(): Promise<Topic[]> {
   ensureSeeded()

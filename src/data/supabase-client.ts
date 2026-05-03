@@ -46,7 +46,12 @@ export function getSupabaseClient(): SupabaseClient {
 /** Cliente directo (solo si está configurado) */
 export const supabase: SupabaseClient = new Proxy({} as unknown as SupabaseClient, {
   get(_target, prop) {
-    return (getSupabaseClient() as unknown as Record<string, unknown>)[prop as string]
+    const client = getSupabaseClient()
+    const value = (client as unknown as Record<string, unknown>)[prop as string]
+    if (typeof value === 'function') {
+      return value.bind(client)
+    }
+    return value
   },
 })
 
@@ -67,7 +72,10 @@ function toCamelCase(str: string): string {
  * Ej: 'centerId' → 'center_id', 'createdAt' → 'created_at'
  */
 function toSnakeCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter: string) => `_${letter.toLowerCase()}`)
+  return str
+    .replace(/([A-Z])/g, '_$1')
+    .toLowerCase()
+    .replace(/^_/, '')
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from '@/i18n'
 import {
   FileText,
@@ -15,6 +15,8 @@ import {
   Layers,
   Menu,
   X,
+  LogOut,
+  User,
 } from 'lucide-react'
 
 function getAuthRole(): string | null {
@@ -28,14 +30,32 @@ function getAuthRole(): string | null {
   }
 }
 
+function getAuthName(): string | null {
+  try {
+    const raw = localStorage.getItem('hoteldocs_auth')
+    if (!raw || raw === 'null' || raw === 'undefined') return null
+    const parsed = JSON.parse(raw)
+    return parsed?.name ?? null
+  } catch {
+    return null
+  }
+}
+
 function canViewUsers(role: string | null): boolean {
   return role === 'master' || role === 'clientAdmin' || role === 'hotelAdmin'
 }
 
+function handleLogout(navigate: ReturnType<typeof useNavigate>) {
+  localStorage.removeItem('hoteldocs_auth')
+  navigate('/login', { replace: true })
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const userRole = getAuthRole()
+  const userName = getAuthName()
   const isMaster = userRole === 'master'
   const { t, lang, setLang } = useTranslation('navigation')
   const { t: tCommon } = useTranslation('common')
@@ -106,6 +126,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           isActive={isActive}
           isMaster={isMaster}
           userRole={userRole}
+          userName={userName}
           mainNavItems={mainNavItems}
           visibleAdminItems={visibleAdminItems}
           systemNavItems={systemNavItems}
@@ -114,6 +135,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           tCommon={tCommon}
           lang={lang}
           setLang={setLang}
+          onLogout={() => handleLogout(navigate)}
         />
       </aside>
 
@@ -129,6 +151,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           isActive={isActive}
           isMaster={isMaster}
           userRole={userRole}
+          userName={userName}
           mainNavItems={mainNavItems}
           visibleAdminItems={visibleAdminItems}
           systemNavItems={systemNavItems}
@@ -137,6 +160,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           tCommon={tCommon}
           lang={lang}
           setLang={setLang}
+          onLogout={() => handleLogout(navigate)}
         />
       </aside>
 
@@ -196,15 +220,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 function SidebarContent({
   isActive,
   isMaster,
+  userRole,
+  userName,
   mainNavItems,
   visibleAdminItems,
   systemNavItems,
   masterNavItems,
   t,
+  onLogout,
 }: {
   isActive: (path: string) => boolean
   isMaster: boolean
   userRole: string | null
+  userName: string | null
   mainNavItems: any[]
   visibleAdminItems: any[]
   systemNavItems: any[]
@@ -213,9 +241,10 @@ function SidebarContent({
   tCommon: (key: string) => string
   lang: string
   setLang: (lang: 'es' | 'en' | 'de') => void
+  onLogout: () => void
 }) {
   return (
-    <nav className="flex-1 overflow-y-auto py-4">
+    <nav className="flex-1 overflow-y-auto py-4 flex flex-col">
       <div className="px-3 space-y-1">
         {mainNavItems.map((item) => (
           <NavItem key={item.path} item={item} active={isActive(item.path)} />
@@ -260,6 +289,27 @@ function SidebarContent({
         {systemNavItems.map((item) => (
           <NavItem key={item.path} item={item} active={isActive(item.path)} />
         ))}
+      </div>
+
+      {/* User info + Logout */}
+      <div className="mt-auto pt-4 px-3">
+        <div className="mx-1 border-t border-[#E5E7EB] mb-3" />
+        <div className="flex items-center gap-2 px-3 py-2 mb-2">
+          <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
+            <User className="w-4 h-4 text-[#2563EB]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-[#111827] truncate">{userName || 'Usuario'}</p>
+            <p className="text-[11px] text-[#9CA3AF] capitalize">{userRole || ''}</p>
+          </div>
+        </div>
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-[#6B7280] hover:bg-[#FEF2F2] hover:text-[#EF4444] transition-colors"
+        >
+          <LogOut className="w-[18px] h-[18px]" />
+          Cerrar sesión
+        </button>
       </div>
     </nav>
   )

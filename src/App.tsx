@@ -17,108 +17,168 @@ import MasterClientsPage from './pages/MasterClientsPage'
 import MasterClientDetailPage from './pages/MasterClientDetailPage'
 import MasterLicensesPage from './pages/MasterLicensesPage'
 import AppShell from './components/AppShell'
+import RequireAuth from './components/RequireAuth'
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   return <AppShell>{children}</AppShell>
 }
 
+/** Roles permitidos para funciones de administración */
+const ADMIN_ROLES = ['master', 'clientAdmin', 'hotelAdmin']
+
 export default function App() {
   return (
     <Routes>
+      {/* Públicas */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/public/:id" element={<PublicDocumentPage />} />
+
+      {/* Protegidas — cualquier usuario logueado */}
       <Route
         path="/dashboard"
         element={
-          <AppLayout>
-            <DashboardPage />
-          </AppLayout>
+          <RequireAuth>
+            <AppLayout>
+              <DashboardPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/documents"
         element={
-          <AppLayout>
-            <DocumentsPage />
-          </AppLayout>
+          <RequireAuth>
+            <AppLayout>
+              <DocumentsPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/documents/:id"
         element={
-          <AppLayout>
-            <DocumentViewerPage />
-          </AppLayout>
+          <RequireAuth>
+            <AppLayout>
+              <DocumentViewerPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
+
+      {/* Protegidas — administradores */}
       <Route
         path="/admin/centers"
         element={
-          <AppLayout>
-            <AdminCentersPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminCentersPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/users"
         element={
-          <AppLayout>
-            <AdminUsersPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminUsersPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/topics"
         element={
-          <AppLayout>
-            <AdminTopicsPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminTopicsPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/documents"
         element={
-          <AppLayout>
-            <AdminDocumentsPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminDocumentsPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/documents/:id/edit"
         element={
-          <AppLayout>
-            <AdminDocumentEditorPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminDocumentEditorPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/departments"
         element={
-          <AppLayout>
-            <AdminDepartmentsPage />
-          </AppLayout>
-        }
-      />
-      <Route
-        path="/admin/log"
-        element={
-          <AppLayout>
-            <AdminLogPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminDepartmentsPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
       <Route
         path="/admin/alarms"
         element={
-          <AppLayout>
-            <AdminAlarmsPage />
-          </AppLayout>
+          <RequireAuth allowedRoles={ADMIN_ROLES}>
+            <AppLayout>
+              <AdminAlarmsPage />
+            </AppLayout>
+          </RequireAuth>
         }
       />
-      <Route path="/public/:id" element={<PublicDocumentPage />} />
-      <Route path="/master/clients" element={<AppLayout><MasterClientsPage /></AppLayout>} />
-      <Route path="/master/clients/:id" element={<AppLayout><MasterClientDetailPage /></AppLayout>} />
-      <Route path="/master/licenses" element={<AppLayout><MasterLicensesPage /></AppLayout>} />
+      <Route
+        path="/admin/log"
+        element={
+          <RequireAuth>
+            <AppLayout>
+              <AdminLogPage />
+            </AppLayout>
+          </RequireAuth>
+        }
+      />
+
+      {/* Protegidas — solo master */}
+      <Route
+        path="/master/clients"
+        element={
+          <RequireAuth allowedRoles={['master']}>
+            <AppLayout>
+              <MasterClientsPage />
+            </AppLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/master/clients/:id"
+        element={
+          <RequireAuth allowedRoles={['master']}>
+            <AppLayout>
+              <MasterClientDetailPage />
+            </AppLayout>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/master/licenses"
+        element={
+          <RequireAuth allowedRoles={['master']}>
+            <AppLayout>
+              <MasterLicensesPage />
+            </AppLayout>
+          </RequireAuth>
+        }
+      />
     </Routes>
   )
 }

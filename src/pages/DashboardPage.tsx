@@ -24,8 +24,10 @@ interface AuthData {
   id: string
   email: string
   name: string
-  role: 'admin' | 'user'
-  centerId: string
+  role: 'master' | 'clientAdmin' | 'hotelAdmin' | 'user'
+  clientId: string | null
+  centerIds: string[]
+  departmentId: string | null
 }
 
 function useAuth(): AuthData | null {

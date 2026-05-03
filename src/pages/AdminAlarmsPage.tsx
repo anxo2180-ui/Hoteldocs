@@ -21,9 +21,9 @@ function useAdminGuard() {
   const navigate = useNavigate()
   useEffect(() => {
     const raw = localStorage.getItem('hoteldocs_auth')
-    const auth = raw ? (JSON.parse(raw) as { user?: { role?: string } }) : null
-    const role = auth?.user?.role
-    if (role && role !== 'admin') {
+    const auth = raw ? (JSON.parse(raw) as { role?: string }) : null
+    const role = auth?.role
+    if (!role || !['master', 'clientAdmin', 'hotelAdmin'].includes(role)) {
       navigate('/dashboard')
     }
   }, [navigate])

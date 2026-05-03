@@ -25,6 +25,8 @@ import * as local from './api-local'
 
 let supabaseReady: boolean | null = null
 let supabaseCheckPromise: Promise<boolean> | null = null
+let supabaseLastCheckTime = 0
+const SUPABASE_CHECK_TTL = 30000 // 30s para reintentar
 
 /** Pingea Supabase para saber si el schema está migrado (tabla clients existe) */
 function checkSupabase(): Promise<boolean> {
@@ -38,9 +40,12 @@ function checkSupabase(): Promise<boolean> {
       const mod = await import('./api-supabase')
       await (mod as any).getClients()
       supabaseReady = true
+      supabaseLastCheckTime = Date.now()
       return true
-    } catch {
+    } catch (err) {
+      console.warn('[api.ts] Supabase no responde o schema no migrado:', err)
       supabaseReady = false
+      supabaseLastCheckTime = Date.now()
       return false
     }
   })()
@@ -48,7 +53,14 @@ function checkSupabase(): Promise<boolean> {
 }
 
 async function useSupabase(): Promise<boolean> {
-  if (supabaseReady !== null) return supabaseReady
+  if (supabaseReady !== null) {
+    // Permitir re-check si pasó el TTL y antes falló
+    if (!supabaseReady && Date.now() - supabaseLastCheckTime > SUPABASE_CHECK_TTL) {
+      supabaseCheckPromise = null
+      return checkSupabase()
+    }
+    return supabaseReady
+  }
   return checkSupabase()
 }
 
@@ -95,9 +107,7 @@ export async function getClientById(id: string): Promise<Client | null> {
 export async function createClient(client: Omit<Client, 'id' | 'createdAt'>): Promise<Client> {
   if (await useSupabase()) {
     const mod = await import('./api-supabase')
-    const result = await mod.createClient(client)
-    syncAuthUser()
-    return result
+    return mod.createClient(client)
   }
   return local.createClient(client)
 }
@@ -256,6 +266,14 @@ export async function updateUser(id: string, updates: Partial<User>): Promise<Us
     return mod.updateUser(id, updates)
   }
   return local.updateUser(id, updates)
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  if (await useSupabase()) {
+    const mod = await import('./api-supabase')
+    return mod.deleteUser(id)
+  }
+  return local.deleteUser(id)
 }
 
 // ========================================================================
@@ -443,6 +461,10 @@ export async function deleteAlarm(id: string): Promise<void> {
 // ========================================================================
 
 export async function extractTextFromPDF(file: File): Promise<string> {
+  if (await useSupabase()) {
+    const mod = await import('./api-supabase')
+    return mod.extractTextFromPDF(file)
+  }
   return local.extractTextFromPDF(file)
 }
 
@@ -474,7 +496,7 @@ export function localPDFToWikiConverter(text: string): string {
 // UTILIDAD: sincroniza auth user desde Supabase → localStorage
 // ========================================================================
 
-async function syncAuthUser(): Promise<void> {
+export async function syncAuthUser(): Promise<void> {
   if (!isSupabaseConfigured) return
   try {
     const mod = await import('./api-supabase')
@@ -489,7 +511,7 @@ async function syncAuthUser(): Promise<void> {
         departmentId: user.departmentId,
       }))
     }
-  } catch {
-    // ignore
+  } catch (err) {
+    console.warn('[api.ts] syncAuthUser failed:', err)
   }
 }
