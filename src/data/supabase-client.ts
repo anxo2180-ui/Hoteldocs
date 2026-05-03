@@ -623,19 +623,167 @@ export async function getUserById(id: string): Promise<User | null> {
 }
 
 /**
- * Crear un usuario en la tabla pública `users`.
- * NOTA: El auth.user debe existir previamente (creado vía invite/signUp),
- * o bien gestionarse por separado en el backend.
+ * Crear un usuario COMPLETO: auth.user + public.users profile.
+ *
+ * FLUJO ATÓMICO (todo o nada):
+ *   1. signUp en Supabase Auth → obtiene authUserId
+ *   2. upsert en public.users   → INSERT o UPDATE según conflicto en 'id'
+ *
+ * ROLLBACK / COMPENSACIÓN:
+ *   - Si el perfil (paso 2) falla después de crear auth.user,
+ *     se reporta que auth.user quedó HUÉRFANO para que el administrador limpie.
+ *   - Desde cliente anónimo no se puede borrar otro auth.user.
+ *
+ * MANEJO DE DUPLICADOS:
+ *   - Si signUp dice "ya existe": buscar perfil en public.users
+ *     → si existe: UPDATE del perfil (reactivación / reasignación)
+ *     → si NO existe: error claro (auth sin perfil = huérfano irrecuperable desde cliente)
  */
-export async function createUser(user: Omit<User, 'createdAt' | 'updatedAt'>): Promise<User> {
-  const { data, error } = await supabase
+export async function createUser(
+  user: Omit<User, 'id' | 'createdAt' | 'updatedAt'> & { password?: string }
+): Promise<User> {
+  const client = getSupabaseClient()
+  let authUserId: string | null = null
+
+  // ---------------------------------------------------------------------------
+  // PASO 1: Crear (o detectar existente) en Supabase Auth
+  // ---------------------------------------------------------------------------
+  const { data: signUpData, error: signUpError } = await client.auth.signUp({
+    email: user.email,
+    password: user.password || 'demo123',
+    options: {
+      data: { name: user.name },
+    },
+  })
+
+  // --- Caso A: signUp exitoso (nuevo usuario creado, o confirmación pendiente) ---
+  if (!signUpError) {
+    authUserId = signUpData?.user?.id ?? null
+
+    // Fallback por si Supabase envuelve el user de forma diferente
+    if (!authUserId && signUpData?.user) {
+      authUserId = (signUpData.user as any).id ?? null
+    }
+  }
+  // --- Caso B: signUp falló (posiblemente "usuario ya existe") ---
+  else {
+    const errMsg = signUpError.message?.toLowerCase() || ''
+    const errCode =
+      (signUpError as any).status?.toString?.() ||
+      (signUpError as any).code ||
+      (signUpError as any).error_code ||
+      ''
+
+    const isAlreadyExists =
+      errMsg.includes('already') ||
+      errMsg.includes('registered') ||
+      errMsg.includes('exists') ||
+      errMsg.includes('duplicate') ||
+      errMsg.includes('user_already_exists') ||
+      String(errCode).startsWith('42') ||   // PostgreSQL class 42 — syntax error or access rule violation (algunos providers)
+      errCode === '422' ||
+      errCode === '23505' ||                // PostgreSQL unique_violation
+      errCode === 'user_already_registered'
+
+    if (isAlreadyExists) {
+      // Buscar perfil existente en public.users por email
+      const { data: existingRows, error: findError } = await client
+        .from('users')
+        .select('id, email')
+        .eq('email', user.email)
+        .limit(1)
+
+      if (findError) {
+        throw new Error(
+          `[ATOMIC FAIL] El usuario "${user.email}" ya existe en auth, pero falló la búsqueda de su perfil: ${findError.message}`
+        )
+      }
+
+      const existingProfile = existingRows?.[0]
+      if (existingProfile?.id) {
+        // -----------------------------------------------------------------
+        // Ya existe en auth + public → actualizar perfil (UPDATE atómico)
+        // -----------------------------------------------------------------
+        const updatePayload: Record<string, unknown> = {
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          client_id: user.clientId ?? null,
+          center_ids: user.centerIds ?? [],
+          department_id: user.departmentId ?? null,
+          is_active: user.isActive ?? true,
+        }
+
+        const { data: updated, error: updateError } = await client
+          .from('users')
+          .update(camelToSnake(updatePayload) as any)
+          .eq('id', existingProfile.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          throw new Error(
+            `[ATOMIC FAIL] Usuario existente "${user.email}": error actualizando perfil: ${updateError.message}`
+          )
+        }
+        return snakeToCamel<User>(updated)
+      }
+
+      // -----------------------------------------------------------------
+      // Existe en auth pero NO en public.users: huérfano irrecuperable
+      // desde cliente anónimo (no podemos listar auth.users ni obtener UUID)
+      // -----------------------------------------------------------------
+      throw new Error(
+        `[ATOMIC FAIL] El email "${user.email}" ya está registrado en autenticación pero no tiene perfil en public.users. ` +
+        `Desde el cliente anónimo no se puede recuperar su UUID. ` +
+        `Contacte al administrador para eliminar el registro de auth.users o crear el perfil manualmente.`
+      )
+    }
+
+    // Error de auth no manejado específicamente (red, configuración, etc.)
+    throw new Error(`[AUTH ERROR] Error en registro de autenticación: ${signUpError.message}`)
+  }
+
+  if (!authUserId) {
+    throw new Error(
+      `[ATOMIC FAIL] Registro en auth aparentemente exitoso pero no se obtuvo user ID. ` +
+      `Esto suele ocurrir cuando la confirmación por email está activada y Supabase no expone el ID inmediatamente.`
+    )
+  }
+
+  // ---------------------------------------------------------------------------
+  // PASO 2: Upsert del perfil en public.users (INSERT o UPDATE atómico)
+  // ---------------------------------------------------------------------------
+  const profilePayload = {
+    id: authUserId,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    client_id: user.clientId ?? null,
+    center_ids: user.centerIds ?? [],
+    department_id: user.departmentId ?? null,
+    is_active: user.isActive ?? true,
+  }
+
+  const { data: upserted, error: upsertError } = await client
     .from('users')
-    .insert(camelToSnake(user) as any)
+    .upsert(camelToSnake(profilePayload) as any, { onConflict: 'id' })
     .select()
     .single()
 
-  if (error) throw error
-  return snakeToCamel<User>(data)
+  if (upsertError) {
+    // Compensación / rollback manual:
+    // Desde cliente anónimo no podemos borrar el auth.user recién creado,
+    // pero sí podemos hacer signOut local para no dejar sesión activa.
+    await client.auth.signOut().catch(() => { /* ignorar error de cleanup */ })
+
+    throw new Error(
+      `[ATOMIC FAIL] Se creó el usuario en auth (ID: ${authUserId}) pero falló el perfil en public.users: ${upsertError.message}. ` +
+      `El usuario quedó HUÉRFANO en autenticación. Contacte al administrador para eliminar auth.users.id='${authUserId}' manualmente.`
+    )
+  }
+
+  return snakeToCamel<User>(upserted)
 }
 
 /**

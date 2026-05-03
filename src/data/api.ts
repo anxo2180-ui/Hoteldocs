@@ -244,7 +244,7 @@ export async function getUsersForCurrentUser(): Promise<User[]> {
   return local.getUsersForCurrentUser()
 }
 
-export async function createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
+export async function createUser(user: Omit<User, 'id' | 'createdAt'> & { password?: string }): Promise<User> {
   if (await useSupabase()) {
     const mod = await import('./api-supabase')
     return mod.createUser(user)

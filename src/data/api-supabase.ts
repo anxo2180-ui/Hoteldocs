@@ -176,8 +176,8 @@ export async function getUsersForCurrentUser(): Promise<User[]> {
   return all.filter(u => u.id === current.id)
 }
 
-export async function createUser(user: Omit<User, 'id' | 'createdAt'>): Promise<User> {
-  return sbCreateUser(user as any)
+export async function createUser(user: Omit<User, 'id' | 'createdAt'> & { password?: string }): Promise<User> {
+  return sbCreateUser(user)
 }
 
 export async function toggleUserActive(id: string): Promise<User> {
