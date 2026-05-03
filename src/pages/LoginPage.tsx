@@ -356,35 +356,37 @@ export default function LoginPage() {
           </motion.button>
         </form>
 
-        {/* Demo users */}
-        <div className="mt-6 pt-5 border-t border-[#E5E7EB]">
-          <p className="text-[11px] font-medium uppercase text-[#9CA3AF] tracking-wide mb-3">
-            {t('demoCredentials')}
-          </p>
-          <div className="grid grid-cols-1 gap-2">
-            {DEMO_USERS.map((user) => (
-              <button
-                key={user.email}
-                onClick={() => setDemoCredentials(user)}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-[#E5E7EB] hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-all text-left"
-              >
-                {user.role === 'master' ? (
-                  <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                ) : user.role === 'clientAdmin' ? (
-                  <Building2 className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
-                ) : user.role === 'hotelAdmin' ? (
-                  <Building2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                ) : (
-                  <User className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-[12px] font-medium text-[#111827] truncate">{user.name}</p>
-                  <p className="text-[11px] text-[#6B7280] truncate">{roleLabel(user.role)}</p>
-                </div>
-              </button>
-            ))}
+        {/* Demo users - oculto por defecto, activable desde panel master */}
+        {false && (
+          <div className="mt-6 pt-5 border-t border-[#E5E7EB]">
+            <p className="text-[11px] font-medium uppercase text-[#9CA3AF] tracking-wide mb-3">
+              {t('demoCredentials')}
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              {DEMO_USERS.map((user) => (
+                <button
+                  key={user.email}
+                  onClick={() => setDemoCredentials(user)}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-[#E5E7EB] hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-all text-left"
+                >
+                  {user.role === 'master' ? (
+                    <Crown className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  ) : user.role === 'clientAdmin' ? (
+                    <Building2 className="w-4 h-4 text-[#2563EB] flex-shrink-0" />
+                  ) : user.role === 'hotelAdmin' ? (
+                    <Building2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  ) : (
+                    <User className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-medium text-[#111827] truncate">{user.name}</p>
+                    <p className="text-[11px] text-[#6B7280] truncate">{roleLabel(user.role)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Indicador de modo */}
         <div className="mt-4 text-center">
